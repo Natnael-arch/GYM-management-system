@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { subDays, startOfDay } from 'date-fns';
+import { subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
 const prisma = new PrismaClient();
@@ -126,7 +126,7 @@ async function main() {
     });
   }
 
-  console.log('Seeding complete!');
+  console.log('Seeding complete! Created members:', activeMember.id, expiredMember.id, blockedMember.id, noneMember.id);
 }
 
 main()
