@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String?
+  email     String?   @unique
+  password  String?
+  role      String    @default("STAFF") // OWNER, STAFF
+  member    Member?
+  payments  Payment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Session   Session[]
+  Account   Account[]
+}
+
+model Member {
+  id          String          @id @default(cuid())
+  barcode     String          @unique
+  firstName   String
+  lastName    String
+  phone       String?
+  photoUrl    String?
+  isBlocked   Boolean         @default(false)
+  isArchived  Boolean         @default(false)
+  userId      String?         @unique
+  user        User?           @relation(fields: [userId], references: [id])
+  memberships Membership[]
+  attendance  Attendance[]
+  deniedLogs  DeniedAttempt[]
+  createdAt   DateTime        @default(now())
+}
+
+model Plan {
+  id           String       @id @default(cuid())
+  name         String
+  durationDays Int
+  priceCents   Int
+  memberships  Membership[]
+}
+
+model Membership {
+  id       String    @id @default(cuid())
+  memberId String
+  planId   String
+  startsAt DateTime
+  endsAt   DateTime
+  status   String    @default("ACTIVE") // ACTIVE, EXPIRED, FROZEN
+  payments Payment[]
+  member   Member    @relation(fields: [memberId], references: [id])
+  plan     Plan      @relation(fields: [planId], references: [id])
+
+  @@index([memberId])
+}
+
+model Payment {
+  id           String     @id @default(cuid())
+  membershipId String
+  amountCents  Int
+  method       String
+  paidAt       DateTime   @default(now())
+  recordedById String
+  membership   Membership @relation(fields: [membershipId], references: [id])
+  recordedBy   User       @relation(fields: [recordedById], references: [id])
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  memberId    String
+  checkInAt   DateTime  @default(now())
+  checkInDate DateTime // stored as Date string or DateTime
+  checkOutAt  DateTime?
+  method      String    @default("BARCODE")
+  member      Member    @relation(fields: [memberId], references: [id])
+
+  @@unique([memberId, checkInDate])
+  @@index([checkInDate])
+}
+
+model DeniedAttempt {
+  id        String   @id @default(cuid())
+  memberId  String?
+  barcode   String
+  reason    String
+  scannedAt DateTime @default(now())
+  member    Member?  @relation(fields: [memberId], references: [id])
+}
+
+// better-auth required tables
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
