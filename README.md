@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gym Access System
 
-## Getting Started
+A comprehensive Next.js + Prisma + PostgreSQL system for managing gym memberships, printing barcode cards, and processing hardware-integrated check-ins.
 
-First, run the development server:
+## Features
+- **Member Management**: Create members, upload photos, auto-generate unique 12-char barcodes.
+- **Plans & Memberships**: Issue, renew, and freeze memberships based on flexible pricing plans.
+- **Check-in Kiosk**: A lightning-fast, offline-resilient kiosk that actively triggers door hardware on successful scans.
+- **Analytics & Reporting**: Daily visitation graphs, grid maps, and CSV exports.
+- **Audit Logs & Security**: OWNER-only audit trails, IP rate-limiting, and emergency lockdown toggles.
+
+---
+
+## Deployment (Docker Compose)
+
+The easiest way to run the Gym Access System in production is using Docker Compose. The provided `docker-compose.yml` spins up PostgreSQL, the Next.js Web App, and a Caddy Reverse Proxy for HTTPS.
+
+1. Ensure Docker and Docker Compose are installed on your host.
+2. Clone this repository.
+3. Add a `.env` file containing your production `BETTER_AUTH_SECRET`.
+4. Run:
+   ```bash
+   docker compose up -d --build
+   ```
+5. Apply database migrations:
+   ```bash
+   docker exec -it gym_web npx prisma db push
+   ```
+
+---
+
+## Kiosk Auto-Launch
+
+If this system is being run on the front-desk PC, you can automatically launch the check-in screen in fullscreen Kiosk mode on boot using Chromium:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+chromium-browser --kiosk http://localhost:3000/checkin --disable-infobars --autoplay-policy=no-user-gesture-required
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+*Note: Ensure an admin logs in at least once so the browser caches the offline manifest via IndexedDB.*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Backups
 
-## Learn More
+Automated scripts are provided in `scripts/`. They bundle a full `pg_dump` of the PostgreSQL database alongside the `public/uploads` folder containing member photos.
 
-To learn more about Next.js, take a look at the following resources:
+### Scheduling Nightly Backups
+To run the backup automatically every night at 2:00 AM, add a CRON job:
+```bash
+crontab -e
+```
+Add the following line:
+```cron
+0 2 * * * cd /path/to/gym-access && ./scripts/backup.sh >> ./backups/backup.log 2>&1
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+*Don't forget to configure the `# TODO` section in `backup.sh` to sync the `.tar.gz` offsite using `aws s3` or `rclone`!*
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Restoring a Backup
+```bash
+./scripts/restore.sh ./backups/gym_backup_20260827_020000.tar.gz
+```

@@ -17,6 +17,7 @@ model User {
   payments  Payment[]
   sessions  Session[]
   accounts  Account[]
+  auditLogs AuditLog[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -24,6 +25,24 @@ model User {
 enum Role {
   OWNER
   STAFF
+}
+
+// ... keeping the rest the same ...
+
+model SystemSettings {
+  id           String  @id @default("default")
+  lockdownMode Boolean @default(false)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // e.g. "MEMBER_CREATE", "PAYMENT_RECORDED", etc
+  entityType String   // "Member", "Payment", "Membership", "Plan"
+  entityId   String
+  details    String?  // JSON diff or summary
+  createdAt  DateTime @default(now())
 }
 
 model Member {
@@ -144,5 +163,4 @@ model Verification {
   value      String
   expiresAt  DateTime
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 }

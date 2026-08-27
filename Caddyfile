@@ -1,0 +1,8 @@
+gym.local {
+    reverse_proxy web:3000
+}
+
+# If deployed publicly, Caddy will automatically provision Let's Encrypt certificates for a real domain:
+# mygymdomain.com {
+#     reverse_proxy web:3000
+# }

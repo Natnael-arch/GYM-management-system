@@ -9,10 +9,36 @@ services:
       POSTGRES_PASSWORD: gym_password
       POSTGRES_DB: gym_db
     ports:
-      - "5432:5432"
+      - "5433:5432" # Mapped to 5433 per previous config
     volumes:
       - gym_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  web:
+    build: .
+    container_name: gym_web
+    environment:
+      DATABASE_URL: postgresql://gym_user:gym_password@postgres:5432/gym_db?schema=public
+      BETTER_AUTH_SECRET: gym_secret_key_12345
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: gym_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
 volumes:
   gym_pgdata:
+  caddy_data:
+  caddy_config:

@@ -32,7 +32,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/members" className="block p-2 hover:bg-gray-50 rounded">Members</Link>
           <Link href="/memberships" className="block p-2 hover:bg-gray-50 rounded">Memberships</Link>
           <Link href="/attendance" className="block p-2 hover:bg-gray-50 rounded">Attendance</Link>
-          <Link href="/reports" className="block p-2 hover:bg-gray-50 rounded">Reports</Link>
+          <Link href="/reports" className="block px-3 py-2 rounded-md hover:bg-gray-100 font-medium">Reports</Link>
+          <Link href="/audit" className="block px-3 py-2 rounded-md hover:bg-gray-100 font-medium text-purple-700">Audit Logs</Link>
           <button 
             className="block w-full text-left p-2 hover:bg-gray-50 rounded text-red-600 mt-8"
             onClick={async () => {

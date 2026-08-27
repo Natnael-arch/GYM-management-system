@@ -14,10 +14,12 @@
     "better-auth": "^1.7.2",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
+    "idb-keyval": "^6.3.0",
     "jsbarcode": "^3.12.3",
     "next": "16.3.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -25,14 +27,17 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.11",
     "bcryptjs": "^3.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "node-mocks-http": "^1.18.1",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
