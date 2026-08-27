@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -12,13 +12,18 @@ model User {
   name      String?
   email     String?   @unique
   password  String?
-  role      String    @default("STAFF") // OWNER, STAFF
+  role      Role      @default(STAFF) // OWNER, STAFF
   member    Member?
   payments  Payment[]
+  sessions  Session[]
+  accounts  Account[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  Session   Session[]
-  Account   Account[]
+}
+
+enum Role {
+  OWNER
+  STAFF
 }
 
 model Member {
@@ -47,17 +52,23 @@ model Plan {
 }
 
 model Membership {
-  id       String    @id @default(cuid())
+  id       String           @id @default(cuid())
   memberId String
   planId   String
   startsAt DateTime
   endsAt   DateTime
-  status   String    @default("ACTIVE") // ACTIVE, EXPIRED, FROZEN
+  status   MembershipStatus @default(ACTIVE) // ACTIVE, EXPIRED, FROZEN
   payments Payment[]
-  member   Member    @relation(fields: [memberId], references: [id])
-  plan     Plan      @relation(fields: [planId], references: [id])
+  member   Member           @relation(fields: [memberId], references: [id])
+  plan     Plan             @relation(fields: [planId], references: [id])
 
   @@index([memberId])
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  FROZEN
 }
 
 model Payment {
@@ -75,7 +86,7 @@ model Attendance {
   id          String    @id @default(cuid())
   memberId    String
   checkInAt   DateTime  @default(now())
-  checkInDate DateTime // stored as Date string or DateTime
+  checkInDate DateTime  @db.Date
   checkOutAt  DateTime?
   method      String    @default("BARCODE")
   member      Member    @relation(fields: [memberId], references: [id])
