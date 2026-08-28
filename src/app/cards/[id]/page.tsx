@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { BarcodeCard } from "@/components/BarcodeCard";
+import { Printer } from "lucide-react";
 
 export default function SingleCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -17,19 +18,22 @@ export default function SingleCardPage({ params }: { params: Promise<{ id: strin
       });
   }, [id]);
 
-  if (error) return <div className="p-8 text-red-600">{error}</div>;
-  if (!member) return <div className="p-8">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive text-center mt-12">{error}</div>;
+  if (!member) return <div className="p-8 text-center mt-12 text-muted-foreground animate-pulse">Loading card...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8 print:p-0 print:bg-white flex flex-col items-center">
-      <div className="mb-8 print:hidden">
+    <div className="min-h-screen bg-background p-8 print:p-0 print:bg-white flex flex-col items-center">
+      <div className="mb-8 print:hidden max-w-sm text-center">
         <button 
           onClick={() => window.print()}
-          className="px-6 py-2 bg-blue-600 text-white rounded shadow font-medium hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg shadow-sm font-medium hover:bg-primary-hover transition-colors"
         >
-          Print Card
+          <Printer className="w-4 h-4" />
+          Print ID Card
         </button>
-        <p className="text-sm text-gray-500 mt-2 text-center">Set printer margins to none, turn off headers/footers.</p>
+        <p className="text-sm text-muted-foreground mt-3 bg-muted p-3 rounded-lg border border-border">
+          Set printer margins to none, and turn off headers/footers in the print dialog.
+        </p>
       </div>
 
       <BarcodeCard member={member} />

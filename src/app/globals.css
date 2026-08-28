@@ -1,26 +1,114 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  /* Light Theme Defaults */
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  
+  --primary: #4f46e5; /* indigo-600 */
+  --primary-foreground: #ffffff;
+  --primary-hover: #4338ca; /* indigo-700 */
+  
+  --secondary: #f1f5f9; /* slate-100 */
+  --secondary-foreground: #334155; /* slate-700 */
+  
+  --muted: #f1f5f9; /* slate-100 */
+  --muted-foreground: #64748b; /* slate-500 */
+  
+  --accent: #e0e7ff; /* indigo-100 */
+  --accent-foreground: #3730a3; /* indigo-800 */
+  
+  --destructive: #ef4444; /* red-500 */
+  --destructive-foreground: #ffffff;
+  
+  --success: #22c55e; /* green-500 */
+  --success-foreground: #ffffff;
+  
+  --warning: #f59e0b; /* amber-500 */
+  --warning-foreground: #ffffff;
+  
+  --border: #e2e8f0; /* slate-200 */
+  --input: #e2e8f0;
+  --ring: #4f46e5;
+}
+
+[data-theme="dark"] {
+  /* Dark Theme Defaults */
+  --background: #0a0a0f; /* very dark navy */
+  --foreground: #f8fafc; /* slate-50 */
+  
+  --card: #14151f; /* one step lighter */
+  --card-foreground: #f8fafc;
+  
+  --primary: #6366f1; /* indigo-500 */
+  --primary-foreground: #ffffff;
+  --primary-hover: #818cf8; /* indigo-400 */
+  
+  --secondary: #1e1f2e; /* two steps lighter */
+  --secondary-foreground: #cbd5e1; /* slate-300 */
+  
+  --muted: #1e1f2e; 
+  --muted-foreground: #94a3b8; /* slate-400 */
+  
+  --accent: #312e81; /* indigo-900 */
+  --accent-foreground: #e0e7ff; /* indigo-100 */
+  
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  
+  --border: #1e293b; /* slate-800 */
+  --input: #1e293b;
+  --ring: #6366f1;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

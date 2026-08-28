@@ -7,6 +7,11 @@ import Link from "next/link";
 import { LockdownControls } from "./LockdownControls";
 import { redirect } from "next/navigation";
 import { requireRole, hasRole } from '@/lib/auth-helpers';
+import { TopBar } from "@/components/layout/TopBar";
+import { StatCard } from "@/components/ui/StatCard";
+import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
+import { Users, Activity, AlertTriangle, ShieldAlert } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await requireRole(['OWNER', 'STAFF']);
@@ -45,88 +50,109 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gym Access Dashboard</h1>
-          <p className="text-gray-500 mt-1">{format(gymCurrentTime, "EEEE, MMMM do, yyyy")}</p>
+    <>
+      <TopBar 
+        title="Dashboard" 
+        subtitle={format(gymCurrentTime, "EEEE, MMMM do, yyyy")} 
+        action={isOwner ? <LockdownControls initialLockdown={settings?.lockdownMode || false} /> : undefined}
+      />
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard 
+            title="Active Members" 
+            value={activeMembersCount} 
+            icon={Users} 
+            variant="count" 
+          />
+          <StatCard 
+            title="Checked In Today" 
+            value={checkedInTodayCount} 
+            icon={Activity} 
+            variant="count" 
+            subtext="Unique visits"
+          />
+          <StatCard 
+            title="Expiring in 7 Days" 
+            value={expiringSoon.length} 
+            icon={AlertTriangle} 
+            variant="warning" 
+          />
+          <StatCard 
+            title="Blocked Members" 
+            value={blockedMembers.length} 
+            icon={ShieldAlert} 
+            variant="danger" 
+          />
         </div>
-        {isOwner && <LockdownControls initialLockdown={settings?.lockdownMode || false} />}
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Active Members</h3>
-          <p className="text-4xl font-bold text-gray-900 mt-2">{activeMembersCount}</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Checked In Today</h3>
-          <p className="text-4xl font-bold text-blue-600 mt-2">{checkedInTodayCount}</p>
-          <Link href="/attendance/today" className="text-sm text-blue-600 hover:underline mt-2 inline-block">View list &rarr;</Link>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Expiring in 7 Days</h3>
-          <p className="text-4xl font-bold text-orange-500 mt-2">{expiringSoon.length}</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Blocked Members</h3>
-          <p className="text-4xl font-bold text-red-600 mt-2">{blockedMembers.length}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-medium text-gray-900">Expiring Soon</h2>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-            {expiringSoon.length === 0 ? (
-              <p className="p-6 text-gray-500">No memberships expiring soon.</p>
-            ) : (
-              expiringSoon.map(m => (
-                <div key={m.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
-                  <div>
-                    <Link href={`/members/${m.member.id}`} className="font-medium text-blue-700 hover:underline">
-                      {m.member.firstName} {m.member.lastName}
-                    </Link>
-                    <p className="text-sm text-gray-500">{m.plan.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-orange-600">
-                      Ends {format(new Date(m.endsAt), "MMM d")}
-                    </p>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-warning" />
+                Expiring Soon
+              </h2>
+            </div>
+            <div className="divide-y divide-border max-h-96 overflow-y-auto">
+              {expiringSoon.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No memberships expiring soon.
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-medium text-gray-900 text-red-700">Blocked Members</h2>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-            {blockedMembers.length === 0 ? (
-              <p className="p-6 text-gray-500">No blocked members.</p>
-            ) : (
-              blockedMembers.map(m => (
-                <div key={m.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
-                  <div>
-                    <Link href={`/members/${m.id}`} className="font-medium text-blue-700 hover:underline">
-                      {m.firstName} {m.lastName}
-                    </Link>
-                    <p className="text-sm text-gray-500 font-mono">{m.barcode}</p>
+              ) : (
+                expiringSoon.map(m => (
+                  <div key={m.id} className="p-4 hover:bg-muted/50 transition-colors flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      <Avatar name={`${m.member.firstName} ${m.member.lastName}`} />
+                      <div>
+                        <Link href={`/members/${m.member.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                          {m.member.firstName} {m.member.lastName}
+                        </Link>
+                        <p className="text-sm text-muted-foreground">{m.plan.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="warning">
+                        Ends {format(new Date(m.endsAt), "MMM d")}
+                      </Badge>
+                    </div>
                   </div>
-                  <Link href={`/members/${m.id}/edit`} className="text-sm bg-gray-100 px-3 py-1 rounded border hover:bg-gray-200">
-                    Manage
-                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-destructive">
+                <ShieldAlert className="w-5 h-5" />
+                Blocked Members
+              </h2>
+            </div>
+            <div className="divide-y divide-border max-h-96 overflow-y-auto">
+              {blockedMembers.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No blocked members.
                 </div>
-              ))
-            )}
+              ) : (
+                blockedMembers.map(m => (
+                  <div key={m.id} className="p-4 hover:bg-muted/50 transition-colors flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      <Avatar name={`${m.firstName} ${m.lastName}`} />
+                      <div>
+                        <Link href={`/members/${m.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                          {m.firstName} {m.lastName}
+                        </Link>
+                        <p className="text-sm text-muted-foreground font-mono">{m.barcode}</p>
+                      </div>
+                    </div>
+                    <Badge variant="danger">Blocked</Badge>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

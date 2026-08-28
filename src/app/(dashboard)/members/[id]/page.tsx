@@ -3,8 +3,12 @@
 import { useState, useEffect, use } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
+import { Printer, Edit } from "lucide-react";
 
-export default function MemberProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function MemberDetailPanel({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   
   const [member, setMember] = useState<any>(null);
@@ -36,106 +40,111 @@ export default function MemberProfilePage({ params }: { params: Promise<{ id: st
     fetchHistory();
   }, [id, meta.page]);
 
-  if (!member) return <div className="p-8">Loading profile...</div>;
+  if (!member) return <div className="p-8 text-center text-muted-foreground flex-1 flex items-center justify-center">Loading profile...</div>;
 
   const activeMembership = member.memberships?.find((m: any) => m.status === 'ACTIVE' && new Date(m.endsAt) >= new Date());
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex justify-between items-start mb-8">
-        <div className="flex items-center space-x-6">
-          {member.photoUrl ? (
-            <img src={member.photoUrl} alt="Photo" className="w-24 h-24 rounded-full object-cover shadow" />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">
-              {member.firstName[0]}
+    <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-10">
+      <div className="max-w-4xl mx-auto space-y-10">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
+          <div className="flex items-center gap-6">
+            {member.photoUrl ? (
+              <img src={member.photoUrl} alt="Photo" className="w-24 h-24 rounded-full object-cover shadow-sm ring-4 ring-background" />
+            ) : (
+              <Avatar name={`${member.firstName} ${member.lastName}`} className="w-24 h-24 text-3xl shadow-sm ring-4 ring-background" />
+            )}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">{member.firstName} {member.lastName}</h1>
+              <p className="text-muted-foreground font-mono mt-1 text-sm">{member.barcode}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {member.isBlocked && <Badge variant="danger">Blocked</Badge>}
+                {activeMembership ? (
+                  <Badge variant="success">Active until {format(new Date(activeMembership.endsAt), "MMM d, yyyy")}</Badge>
+                ) : (
+                  <Badge variant="neutral">No Active Membership</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Link 
+              href={`/members/${id}/edit`} 
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 border border-input bg-background hover:bg-muted text-sm font-medium rounded-lg transition-colors"
+            >
+              <Edit className="w-4 h-4" />
+              Edit
+            </Link>
+            <Link 
+              href={`/cards/${id}`} 
+              target="_blank" 
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium rounded-lg transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              Print Card
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold mb-4">Attendance History</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Method</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">Loading history...</TableCell></TableRow>
+              ) : history.length === 0 ? (
+                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">No attendance records found.</TableCell></TableRow>
+              ) : (
+                history.map((record: any) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="font-medium">
+                      {format(new Date(record.checkInDate), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(record.checkInAt), "h:mm a")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={record.method === 'BARCODE' ? 'success' : 'warning'}>
+                        {record.method}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          {meta.totalPages > 1 && (
+            <div className="mt-4 flex justify-between items-center text-sm">
+              <button
+                disabled={meta.page === 1}
+                onClick={() => setMeta({ ...meta, page: meta.page - 1 })}
+                className="px-4 py-2 border border-input rounded-lg disabled:opacity-50 hover:bg-muted transition-colors font-medium"
+              >
+                Previous
+              </button>
+              <span className="text-muted-foreground">Page {meta.page} of {meta.totalPages}</span>
+              <button
+                disabled={meta.page === meta.totalPages}
+                onClick={() => setMeta({ ...meta, page: meta.page + 1 })}
+                className="px-4 py-2 border border-input rounded-lg disabled:opacity-50 hover:bg-muted transition-colors font-medium"
+              >
+                Next
+              </button>
             </div>
           )}
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{member.firstName} {member.lastName}</h1>
-            <p className="text-gray-500 font-mono mt-1">{member.barcode}</p>
-            <div className="mt-2 flex space-x-2">
-              {member.isBlocked && <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold uppercase">Blocked</span>}
-              {activeMembership ? (
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold uppercase">Active until {format(new Date(activeMembership.endsAt), "MMM d, yyyy")}</span>
-              ) : (
-                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold uppercase">No Active Membership</span>
-              )}
-            </div>
-          </div>
         </div>
-        <div className="space-x-3">
-          <Link href={`/members/${id}/edit`} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-            Edit Member
-          </Link>
-          <Link href={`/cards/${id}`} target="_blank" className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors">
-            Print Card
-          </Link>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-medium text-gray-900">Attendance History</h2>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
-              <tr><td colSpan={3} className="p-8 text-center text-gray-500">Loading history...</td></tr>
-            ) : history.length === 0 ? (
-              <tr><td colSpan={3} className="p-8 text-center text-gray-500">No attendance records found.</td></tr>
-            ) : (
-              history.map((record: any) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(record.checkInDate), "MMM d, yyyy")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(record.checkInAt), "h:mm a")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      record.method === 'BARCODE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {record.method}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        {meta.totalPages > 1 && (
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-            <button
-              disabled={meta.page === 1}
-              onClick={() => setMeta({ ...meta, page: meta.page - 1 })}
-              className="px-3 py-1 bg-white border border-gray-300 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-500">Page {meta.page} of {meta.totalPages}</span>
-            <button
-              disabled={meta.page === meta.totalPages}
-              onClick={() => setMeta({ ...meta, page: meta.page + 1 })}
-              className="px-3 py-1 bg-white border border-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        <MembershipManager member={member} refreshMember={() => {
+          fetch(`/api/members/${id}`).then(res => res.json()).then(setMember)
+        }} />
       </div>
-
-      <MembershipManager member={member} refreshMember={() => {
-        fetch(`/api/members/${id}`).then(res => res.json()).then(setMember)
-      }} />
     </div>
   );
 }
@@ -199,61 +208,73 @@ function MembershipManager({ member, refreshMember }: { member: any, refreshMemb
   };
 
   return (
-    <div className="mt-8 bg-white rounded-xl shadow overflow-hidden border border-gray-200 p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">Memberships & Payments</h2>
+    <div>
+      <h2 className="text-xl font-bold mb-6">Memberships & Payments</h2>
       
-      <form onSubmit={handleIssue} className="flex gap-4 items-end mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Issue / Renew Plan</label>
-          <select required value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} className="w-full px-3 py-2 border rounded-md">
+      <form onSubmit={handleIssue} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-8 bg-card p-6 rounded-xl border border-border shadow-sm">
+        <div className="md:col-span-2 space-y-1.5">
+          <label className="text-sm font-medium text-muted-foreground">Issue / Renew Plan</label>
+          <select required value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm">
             <option value="">Select a Plan...</option>
             {plans.map(p => <option key={p.id} value={p.id}>{p.name} - {p.durationDays} Days</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Received (ETB)</label>
-          <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Optional" className="w-32 px-3 py-2 border rounded-md" />
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-muted-foreground">Payment (ETB)</label>
+          <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Optional" className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm" />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
-          <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-24 px-3 py-2 border rounded-md">
-            <option value="CASH">CASH</option>
-            <option value="BANK">BANK</option>
-            <option value="CARD">CARD</option>
-          </select>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 space-y-1.5">
+            <label className="text-sm font-medium text-muted-foreground">Method</label>
+            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm">
+              <option value="CASH">CASH</option>
+              <option value="BANK">BANK</option>
+              <option value="CARD">CARD</option>
+            </select>
+          </div>
+          <button type="submit" className="h-[38px] px-4 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary-hover transition-colors text-sm">
+            Issue
+          </button>
         </div>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium h-[42px]">
-          Issue Plan
-        </button>
       </form>
 
       <div className="space-y-4">
         {member.memberships?.map((m: any) => (
-          <div key={m.id} className="border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <h3 className="font-bold text-lg">{m.plan.name} <span className={`text-xs ml-2 px-2 py-1 rounded ${
-                m.status === 'FROZEN' ? 'bg-blue-100 text-blue-800' :
-                new Date(m.endsAt) < new Date() ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'
-              }`}>{m.status}</span></h3>
-              <p className="text-sm text-gray-500">{format(new Date(m.startsAt), "MMM d, yyyy")} - {format(new Date(m.endsAt), "MMM d, yyyy")}</p>
-              
-              <div className="mt-2 text-sm text-gray-600">
-                Payments: {m.payments.length === 0 ? "None" : m.payments.map((p: any) => (
-                  <span key={p.id} className="mr-2 border px-1 rounded bg-gray-50">{(p.amountCents / 100).toFixed(2)} ETB ({p.method})</span>
-                ))}
+          <div key={m.id} className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-lg">{m.plan.name}</h3>
+                  <Badge variant={m.status === 'FROZEN' ? 'warning' : (new Date(m.endsAt) < new Date() ? 'neutral' : 'success')}>
+                    {m.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">{format(new Date(m.startsAt), "MMM d, yyyy")} - {format(new Date(m.endsAt), "MMM d, yyyy")}</p>
+                
+                <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                  <span className="text-muted-foreground mr-1">Payments:</span>
+                  {m.payments.length === 0 ? <span className="text-muted-foreground">None</span> : m.payments.map((p: any) => (
+                    <Badge key={p.id} variant="neutral">{(p.amountCents / 100).toFixed(2)} ETB ({p.method})</Badge>
+                  ))}
+                </div>
               </div>
-            </div>
-            
-            <div className="mt-4 md:mt-0 flex gap-2">
-              <button onClick={() => toggleFreeze(m.id, m.status === 'FROZEN')} className="text-sm border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
-                {m.status === 'FROZEN' ? 'Unfreeze' : 'Freeze'}
-              </button>
-              <button onClick={() => handleStandalonePayment(m.id)} className="text-sm border border-blue-300 text-blue-700 px-3 py-1 rounded hover:bg-blue-50">
-                Record Payment
-              </button>
+              
+              <div className="flex gap-2 w-full md:w-auto">
+                <button onClick={() => toggleFreeze(m.id, m.status === 'FROZEN')} className="flex-1 md:flex-none text-sm border border-input bg-background px-4 py-2 rounded-lg hover:bg-muted font-medium transition-colors">
+                  {m.status === 'FROZEN' ? 'Unfreeze' : 'Freeze'}
+                </button>
+                <button onClick={() => handleStandalonePayment(m.id)} className="flex-1 md:flex-none text-sm border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary/10 font-medium transition-colors">
+                  Record Payment
+                </button>
+              </div>
             </div>
           </div>
         ))}
+        {member.memberships?.length === 0 && (
+          <div className="text-center p-8 bg-card border border-border rounded-xl shadow-sm text-muted-foreground">
+            No memberships found.
+          </div>
+        )}
       </div>
     </div>
   );

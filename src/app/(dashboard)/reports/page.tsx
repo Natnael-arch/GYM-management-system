@@ -4,6 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { exportToCSV } from "@/lib/csv-export";
+import { TopBar } from "@/components/layout/TopBar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge";
+import { Download } from "lucide-react";
 
 export default function ReportsPage() {
   const [fromDate, setFromDate] = useState(format(subDays(new Date(), 6), "yyyy-MM-dd"));
@@ -75,92 +79,104 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Attendance Reports</h1>
-          <p className="text-gray-500 mt-1">Visualize and export historical check-ins.</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-white border border-gray-300 p-2 rounded-lg">
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="outline-none" />
-            <span className="text-gray-400">to</span>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="outline-none" />
+    <>
+      <TopBar 
+        title="Attendance Reports" 
+        subtitle="Visualize and export historical check-ins" 
+        action={
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-card border border-border p-1 rounded-lg">
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="bg-transparent border-none text-sm outline-none px-2 focus:ring-0" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="bg-transparent border-none text-sm outline-none px-2 focus:ring-0" />
+            </div>
+            <button 
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary-hover rounded-lg font-medium transition-colors text-sm h-full"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
           </div>
-          <button 
-            onClick={handleExport}
-            className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-          >
-            Export CSV
-          </button>
+        }
+      />
+      <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+        <div className="bg-card rounded-2xl shadow-sm p-6 border border-border">
+          <h2 className="text-lg font-semibold mb-6">Daily Check-in Trend</h2>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip 
+                  cursor={{fill: 'var(--color-muted)'}} 
+                  contentStyle={{
+                    borderRadius: '8px', 
+                    border: '1px solid var(--color-border)', 
+                    backgroundColor: 'var(--color-card)', 
+                    color: 'var(--color-card-foreground)'
+                  }}
+                />
+                <Bar dataKey="count" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow p-6 mb-8 border border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900 mb-6">Daily Check-in Trend</h2>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip cursor={{fill: '#f3f4f6'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+            <h2 className="text-lg font-semibold">Member Attendance Grid</h2>
+            {loading && <span className="text-sm text-primary animate-pulse font-medium">Updating...</span>}
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="sticky left-0 bg-muted/80 backdrop-blur z-10 font-bold min-w-[150px]">Member</TableHead>
+                  <TableHead className="text-center font-bold">Total</TableHead>
+                  {days.map(d => (
+                    <TableHead key={d.toISOString()} className="text-center whitespace-nowrap">
+                      {format(d, "MMM d")}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {memberGrid.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={days.length + 2} className="text-center text-muted-foreground py-8">
+                      No attendance data for this period.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  memberGrid.map((m: any, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium sticky left-0 bg-card z-10 border-r border-border/50">
+                        {m.name}
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-primary">
+                        {m.total}
+                      </TableCell>
+                      {days.map(d => {
+                        const time = m.visits[format(d, "MMM d")];
+                        return (
+                          <TableCell key={d.toISOString()} className="text-center">
+                            {time ? (
+                              <Badge variant="success">{time}</Badge>
+                            ) : (
+                              <span className="text-muted/50">-</span>
+                            )}
+                          </TableCell>
+                        )
+                      })}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
-
-      <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between">
-          <h2 className="text-lg font-medium text-gray-900">Member Attendance Grid</h2>
-          {loading && <span className="text-sm text-blue-600 animate-pulse">Updating...</span>}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">Member</th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-900 uppercase tracking-wider">Total</th>
-                {days.map(d => (
-                  <th key={d.toISOString()} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {format(d, "MMM d")}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {memberGrid.length === 0 ? (
-                <tr><td colSpan={days.length + 2} className="p-8 text-center text-gray-500">No attendance data for this period.</td></tr>
-              ) : (
-                memberGrid.map((m: any, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                      {m.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-center text-blue-600">
-                      {m.total}
-                    </td>
-                    {days.map(d => {
-                      const time = m.visits[format(d, "MMM d")];
-                      return (
-                        <td key={d.toISOString()} className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                          {time ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              {time}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
