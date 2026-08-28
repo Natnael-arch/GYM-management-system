@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
 import { Badge, BadgeVariant } from "@/components/ui/Badge";
+import { DualDate } from "@/components/ui/DualDate";
+import { AuditDetailsViewer } from "./AuditDetailsViewer";
 
 export default async function AuditLogPage({ searchParams }: { searchParams: Promise<{ action?: string }> }) {
   const session = await requireRole(['OWNER']);
@@ -67,7 +69,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
             ) : logs.map((log) => (
               <TableRow key={log.id}>
                 <TableCell className="text-muted-foreground whitespace-nowrap">
-                  {format(new Date(log.createdAt), "MMM d, HH:mm:ss")}
+                  <DualDate date={log.createdAt} includeTime short />
                 </TableCell>
                 <TableCell className="font-medium">
                   {log.user.name || log.user.email}
@@ -81,9 +83,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
                   {log.entityType} <span className="font-mono text-xs opacity-50">#{log.entityId.slice(-6)}</span>
                 </TableCell>
                 <TableCell className="text-muted-foreground max-w-xs md:max-w-md">
-                  <div className="truncate" title={log.details || ''}>
-                    {log.details || '-'}
-                  </div>
+                  <AuditDetailsViewer details={log.details} />
                 </TableCell>
               </TableRow>
             ))}
