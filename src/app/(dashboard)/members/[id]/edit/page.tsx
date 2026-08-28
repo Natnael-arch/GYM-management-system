@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { hasRole } from "@/lib/roles";
 
 export default function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { data: session } = authClient.useSession();
-  const isOwner = (session?.user as any)?.role === "OWNER";
+  const isOwner = hasRole(session, ['OWNER']);
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);

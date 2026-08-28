@@ -3,6 +3,9 @@ import { getGymLocalDayDate } from '@/lib/date-utils';
 import { toZonedTime } from 'date-fns-tz';
 import { getActiveMembershipQuery } from '@/lib/membership-utils';
 
+const GRACE_PERIOD_MS = 5000;
+const graceCache = new Map<string, { timestamp: number; payload: any }>();
+
 export async function processCheckIn(barcode: string, method: string = 'BARCODE') {
   // 1. Lockdown Check
   const settings = await prisma.systemSettings.findUnique({ where: { id: 'default' } });
@@ -34,6 +37,12 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
 
   const memberId = member.id;
 
+  const now = Date.now();
+  const cached = graceCache.get(memberId);
+  if (cached && (now - cached.timestamp < GRACE_PERIOD_MS)) {
+    return cached.payload;
+  }
+
   // 3. Check if blocked
   if (member.isBlocked) {
     await prisma.deniedAttempt.create({
@@ -61,7 +70,7 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
       }
     });
 
-    return {
+    const payload = {
       allowed: true,
       checkedInAt: attendance.checkInAt,
       member: {
@@ -71,6 +80,9 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
       },
       status: 200
     };
+
+    graceCache.set(memberId, { timestamp: now, payload });
+    return payload;
   } catch (error: any) {
     if (error.code === 'P2002' && error.meta?.target?.includes('checkInDate')) {
       await prisma.deniedAttempt.create({

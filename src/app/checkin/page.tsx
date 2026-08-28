@@ -246,7 +246,7 @@ export default function CheckInKioskPage() {
         </div>
       </div>
 
-      {!isOnline && (
+      {queueCount > 0 && (
         <div className="absolute top-0 left-0 w-full bg-orange-600 text-white text-center py-2 font-bold z-50 animate-pulse shadow-lg">
           OFFLINE MODE ACTIVE - Checks are local, scans will sync later
         </div>

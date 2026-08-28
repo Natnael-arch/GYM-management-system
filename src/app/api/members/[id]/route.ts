@@ -2,8 +2,7 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireRole, hasRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
 
 export async function GET(
@@ -11,9 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await requireRole(['OWNER', 'STAFF']);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const member = await prisma.member.findUnique({
@@ -41,9 +38,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await requireRole(['OWNER', 'STAFF']);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const formData = await request.formData();
@@ -69,7 +64,7 @@ export async function PATCH(
   }
 
   // Only OWNER can block/archive
-  if ((session.user as any).role === 'OWNER') {
+  if (hasRole(session, ['OWNER'])) {
     if (isBlocked !== null) updateData.isBlocked = isBlocked === 'true';
     if (isArchived !== null) updateData.isArchived = isArchived === 'true';
   } else if (isBlocked !== null || isArchived !== null) {

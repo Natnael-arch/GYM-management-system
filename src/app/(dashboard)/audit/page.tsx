@@ -1,16 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireRole } from '@/lib/auth-helpers';
 import { format } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export default async function AuditLogPage({ searchParams }: { searchParams: Promise<{ action?: string }> }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  
-  const isOwner = (session?.user as any)?.role === 'OWNER';
+  const session = await requireRole(['OWNER']);
+  if (!session) return redirect('/');
+
+  const isOwner = true;
   if (!isOwner) {
     redirect('/');
   }

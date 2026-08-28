@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { zktecoService } from '@/lib/zkteco';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/auth'; // Ensure this matches actual auth logic
+import { requireRole } from '@/lib/auth-helpers';
 
 export async function GET(request: Request) {
   try {
@@ -36,10 +36,20 @@ export async function GET(request: Request) {
       }
     }
 
+    const unmappedScansCount = await prisma.deniedAttempt.count({
+      where: {
+        reason: 'UNMAPPED_DEVICE_USER',
+        scannedAt: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)) // today
+        }
+      }
+    });
+
     return NextResponse.json({
       connected: zktecoService.getStatus(),
       deviceUsers: { mapped, unmapped },
-      members // We pass members so the UI can power a dropdown to select who to map to
+      members,
+      unmappedScansToday: unmappedScansCount
     });
   } catch (err: any) {
     console.error(err);

@@ -1,3 +1,4 @@
+// @ts-ignore
 import ZKLib from 'zkteco-js';
 import { EventEmitter } from 'events';
 
@@ -27,6 +28,10 @@ class ZKTecoService extends EventEmitter {
     this.inport = 4000;
     this.timeout = 10000;
     this.mockMode = process.env.MOCK_ZKTECO === 'true';
+    if (this.mockMode && process.env.NODE_ENV === 'production') {
+      console.error('[ZKTeco] ERROR: MOCK_ZKTECO=true is ignored in production. Connecting to real device.');
+      this.mockMode = false;
+    }
   }
 
   async connect() {

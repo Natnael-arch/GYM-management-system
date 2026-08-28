@@ -5,14 +5,14 @@ import { toZonedTime } from "date-fns-tz";
 import { addDays, format } from "date-fns";
 import Link from "next/link";
 import { LockdownControls } from "./LockdownControls";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { requireRole, hasRole } from '@/lib/auth-helpers';
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  const isOwner = (session?.user as any)?.role === 'OWNER';
+  const session = await requireRole(['OWNER', 'STAFF']);
+  if (!session) return redirect('/login');
+
+  const isOwner = hasRole(session, ['OWNER']);
 
   const gymCurrentTime = toZonedTime(new Date(), 'Africa/Addis_Ababa');
   const checkInDate = getGymLocalDayDate();

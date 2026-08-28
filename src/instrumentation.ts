@@ -20,7 +20,14 @@ export async function register() {
 
         if (!member) {
           console.warn(`[ZKTeco] No gym member mapped for device user ${data.deviceUserId}`);
-          // You could optionally log unmapped attempts to a table here, but for now we warn
+          
+          await prisma.deniedAttempt.create({
+            data: { 
+              barcode: data.deviceUserId, 
+              reason: 'UNMAPPED_DEVICE_USER' 
+            }
+          });
+
           return;
         }
 

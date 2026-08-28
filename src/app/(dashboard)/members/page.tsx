@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ChevronDown, FilePenLine, Search } from "lucide-react";
+import { hasRole } from '@/lib/roles';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -14,7 +16,7 @@ export default function MembersPage() {
   const router = useRouter();
   
   const { data: session } = authClient.useSession();
-  const isOwner = (session?.user as any)?.role === "OWNER";
+  const isOwner = hasRole(session, ['OWNER']);
 
   const fetchMembers = async () => {
     const params = new URLSearchParams();

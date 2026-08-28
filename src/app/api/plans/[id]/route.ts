@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    // @ts-ignore
-    if (!session || session.user.role !== 'OWNER') {
+    const session = await requireRole(['OWNER']);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized (OWNER only)' }, { status: 403 });
     }
 

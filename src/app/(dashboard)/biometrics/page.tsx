@@ -11,6 +11,7 @@ export default function BiometricsMappingPage() {
   const [unmappedUsers, setUnmappedUsers] = useState<DeviceUser[]>([]);
   const [members, setMembers] = useState<GymMember[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [unmappedScansToday, setUnmappedScansToday] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
@@ -23,6 +24,7 @@ export default function BiometricsMappingPage() {
         setMappedUsers(data.deviceUsers.mapped);
         setUnmappedUsers(data.deviceUsers.unmapped);
         setMembers(data.members);
+        setUnmappedScansToday(data.unmappedScansToday || 0);
       }
     } catch (err) {
       console.error(err);
@@ -68,6 +70,15 @@ export default function BiometricsMappingPage() {
           Refresh
         </button>
       </div>
+
+      {unmappedScansToday > 0 && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 flex items-center gap-3">
+          <Fingerprint className="w-5 h-5 text-red-500" />
+          <p>
+            <strong>Attention:</strong> There have been <strong>{unmappedScansToday}</strong> fingerprint scan(s) today from a device user that is not mapped to a gym member.
+          </p>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Unmapped Users */}

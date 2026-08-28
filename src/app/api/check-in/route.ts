@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { processCheckIn } from '@/lib/checkin-service';
 
-const GRACE_PERIOD_MS = 60 * 1000;
-const graceCache = new Map<string, { timestamp: number; payload: any }>();
-
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -25,18 +22,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ allowed: false, reason: 'INVALID_INPUT' }, { status: 400 });
     }
 
-    const now = Date.now();
-    const cached = graceCache.get(barcode);
-    if (cached && (now - cached.timestamp < GRACE_PERIOD_MS)) {
-      return NextResponse.json(cached.payload);
-    }
-
     const result = await processCheckIn(barcode, method);
     
-    if (result.allowed) {
-      graceCache.set(barcode, { timestamp: now, payload: result });
-    }
-
     return NextResponse.json(result, { status: result.status });
   } catch (error) {
     console.error(error);

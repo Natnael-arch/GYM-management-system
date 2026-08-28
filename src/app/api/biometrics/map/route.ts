@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/auth';
+import { requireRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
 
 export async function POST(request: Request) {
