@@ -7,14 +7,16 @@ import { useTheme } from 'next-themes';
 import { LayoutDashboard, Users, CreditCard, Dumbbell, ShieldAlert, FileText, Sun, Moon, LogOut } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 
-// Note: Replace with actual auth mechanism if available via context
-// For now, we mock the user or get it from props in layout.
+import { authClient } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     setMounted(true);
@@ -29,6 +31,11 @@ export function Sidebar() {
     };
   }, []);
 
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.push('/login');
+  };
+
   const navGroups = [
     {
       label: 'Main',
@@ -41,13 +48,13 @@ export function Sidebar() {
       label: 'Operations',
       items: [
         { href: '/payments', label: 'Payments', icon: CreditCard },
-        { href: '/plans', label: 'Plans', icon: Dumbbell },
+        ...((session?.user as any)?.role === 'OWNER' ? [{ href: '/plans', label: 'Plans', icon: Dumbbell }] : []),
       ]
     },
     {
       label: 'Administration',
       items: [
-        { href: '/audit', label: 'Audit Log', icon: ShieldAlert },
+        ...((session?.user as any)?.role === 'OWNER' ? [{ href: '/audit', label: 'Audit Log', icon: ShieldAlert }] : []),
         { href: '/reports', label: 'Reports', icon: FileText },
       ]
     }
@@ -110,13 +117,17 @@ export function Sidebar() {
         
         <div className="flex items-center justify-between bg-card border border-border rounded-xl p-2 shadow-sm">
           <div className="flex items-center gap-3">
-            <Avatar name="Admin User" className="w-8 h-8 text-xs" />
+            <Avatar name={session?.user?.name || "User"} className="w-8 h-8 text-xs" />
             <div className="flex flex-col">
-              <span className="text-sm font-semibold truncate max-w-[100px]">Admin</span>
-              <span className="text-xs text-muted-foreground">Staff</span>
+              <span className="text-sm font-semibold truncate max-w-[100px]">{session?.user?.name || "Loading..."}</span>
+              <span className="text-xs text-muted-foreground">{(session?.user as any)?.role || "Staff"}</span>
             </div>
           </div>
-          <button className="p-2 text-muted-foreground hover:text-destructive transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+            title="Log out"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>

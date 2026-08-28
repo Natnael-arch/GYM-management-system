@@ -92,7 +92,7 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="bg-white p-6 rounded shadow">
+      <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
         <h1 className="text-2xl font-bold mb-6">Edit Member</h1>
         
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
@@ -100,39 +100,39 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-4 mb-4">
             {member.photoUrl ? (
-              <img src={member.photoUrl} alt="Current photo" className="w-24 h-24 rounded object-cover" />
+              <img src={member.photoUrl} alt="Current photo" className="w-24 h-24 rounded-lg object-cover" />
             ) : (
-              <div className="w-24 h-24 rounded bg-gray-200 flex items-center justify-center text-gray-500">No Photo</div>
+              <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center text-muted-foreground font-medium border border-border">No Photo</div>
             )}
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Update Photo</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Update Photo</label>
               <input 
                 type="file" 
                 accept="image/*"
                 capture="user" 
                 ref={fileInputRef}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">First Name *</label>
+              <label className="block text-sm font-medium text-muted-foreground">First Name *</label>
               <input 
                 type="text" 
                 required
-                className="mt-1 block w-full border border-gray-300 rounded p-2" 
+                className="mt-1 block w-full border border-input bg-background rounded-lg p-2" 
                 value={firstName} 
                 onChange={(e) => setFirstName(e.target.value)} 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Last Name *</label>
+              <label className="block text-sm font-medium text-muted-foreground">Last Name *</label>
               <input 
                 type="text" 
                 required
-                className="mt-1 block w-full border border-gray-300 rounded p-2" 
+                className="mt-1 block w-full border border-input bg-background rounded-lg p-2" 
                 value={lastName} 
                 onChange={(e) => setLastName(e.target.value)} 
               />
@@ -140,10 +140,10 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Phone</label>
+            <label className="block text-sm font-medium text-muted-foreground">Phone</label>
             <input 
               type="text" 
-              className="mt-1 block w-full border border-gray-300 rounded p-2" 
+              className="mt-1 block w-full border border-input bg-background rounded-lg p-2" 
               value={phone} 
               onChange={(e) => setPhone(e.target.value)} 
             />
@@ -172,18 +172,18 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
 
-          <div className="pt-4 flex justify-end gap-2 border-t mt-4">
+          <div className="pt-4 flex justify-end gap-2 border-t border-border mt-4">
             <button 
               type="button" 
               onClick={() => router.back()}
-              className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-input bg-background rounded-lg text-foreground hover:bg-muted font-medium transition-colors"
             >
               Cancel
             </button>
             <button 
               type="submit" 
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 font-medium transition-colors"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>
@@ -191,17 +191,17 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
         </form>
       </div>
 
-      <div className="bg-red-50 border border-red-200 p-6 rounded shadow">
-        <h2 className="text-xl font-bold text-red-800 mb-2">Danger Zone</h2>
-        <div className="flex justify-between items-center">
+      <div className="bg-destructive/5 border border-destructive/20 p-6 rounded-xl shadow-sm">
+        <h2 className="text-xl font-bold text-destructive mb-2">Danger Zone</h2>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <p className="font-medium text-red-900">Regenerate Barcode</p>
-            <p className="text-sm text-red-700">Current Barcode: <span className="font-mono bg-red-100 px-1">{member.barcode}</span></p>
-            <p className="text-xs text-red-600 mt-1">This will invalidate the current card immediately.</p>
+            <p className="font-medium text-destructive">Regenerate Barcode</p>
+            <p className="text-sm text-destructive/80 mt-1">Current Barcode: <span className="font-mono bg-destructive/10 px-1.5 py-0.5 rounded text-destructive">{member.barcode}</span></p>
+            <p className="text-xs text-destructive/70 mt-1">This will invalidate the current card immediately.</p>
           </div>
           <button 
             onClick={handleRegenerateBarcode}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 font-medium transition-colors"
           >
             Regenerate Barcode
           </button>

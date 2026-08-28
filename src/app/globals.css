@@ -112,3 +112,24 @@ body {
   background-color: var(--background);
   color: var(--foreground);
 }
+
+@layer base {
+  input, textarea, select {
+    color: var(--foreground);
+    background-color: var(--background);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--foreground) !important;
+    -webkit-box-shadow: 0 0 0px 1000px var(--background) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}

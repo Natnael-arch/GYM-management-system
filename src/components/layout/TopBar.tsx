@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 interface TopBarProps {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   action?: React.ReactNode;
 }
 
