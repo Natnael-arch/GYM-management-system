@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { TopBar } from "@/components/layout/TopBar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
-import { format } from "date-fns";
+import { DualDate } from "@/components/ui/DualDate";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { CreditCard, DollarSign } from "lucide-react";
@@ -71,7 +71,7 @@ export default async function PaymentsPage() {
                 payments.map(payment => (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(payment.paidAt), "MMM d, yyyy h:mm a")}
+                      <DualDate date={payment.paidAt} includeTime short />
                     </TableCell>
                     <TableCell>
                       <Link href={`/members/${payment.membership.memberId}`} className="hover:text-primary transition-colors">

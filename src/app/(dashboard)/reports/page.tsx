@@ -7,6 +7,7 @@ import { exportToCSV } from "@/lib/csv-export";
 import { TopBar } from "@/components/layout/TopBar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
+import { DualDate } from "@/components/ui/DualDate";
 import { Download } from "lucide-react";
 
 export default function ReportsPage() {
@@ -136,7 +137,7 @@ export default function ReportsPage() {
                   <TableHead className="text-center font-bold">Total</TableHead>
                   {days.map(d => (
                     <TableHead key={d.toISOString()} className="text-center whitespace-nowrap">
-                      {format(d, "MMM d")}
+                      <DualDate date={d} inline short />
                     </TableHead>
                   ))}
                 </TableRow>

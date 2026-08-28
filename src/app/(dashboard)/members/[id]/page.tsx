@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { format } from "date-fns";
+import { DualDate } from "@/components/ui/DualDate";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -60,10 +60,14 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
               <div className="mt-3 flex flex-wrap gap-2">
                 {member.isBlocked && <Badge variant="danger">Blocked</Badge>}
                 {activeMembership ? (
-                  <Badge variant="success">Active until {format(new Date(activeMembership.endsAt), "MMM d, yyyy")}</Badge>
+                  <Badge variant="success">Active until <DualDate date={activeMembership.endsAt} inline short /></Badge>
                 ) : (
                   <Badge variant="neutral">No Active Membership</Badge>
                 )}
+                <Badge variant={member.biometricEnrolled ? "success" : "neutral"} className="flex gap-1 items-center">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
+                  {member.biometricEnrolled ? "Biometrics Enrolled" : "Biometrics Not Enrolled"}
+                </Badge>
               </div>
             </div>
           </div>
@@ -105,10 +109,10 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
                 history.map((record: any) => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(record.checkInDate), "MMM d, yyyy")}
+                      <DualDate date={record.checkInDate} inline short />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(record.checkInAt), "h:mm a")}
+                      <DualDate date={record.checkInAt} includeTime inline short />
                     </TableCell>
                     <TableCell>
                       <Badge variant={record.method === 'BARCODE' ? 'success' : 'warning'}>
@@ -249,7 +253,9 @@ function MembershipManager({ member, refreshMember }: { member: any, refreshMemb
                     {m.status}
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">{format(new Date(m.startsAt), "MMM d, yyyy")} - {format(new Date(m.endsAt), "MMM d, yyyy")}</p>
+                <div className="text-sm text-muted-foreground mt-1 flex gap-1">
+                  <DualDate date={m.startsAt} inline short /> - <DualDate date={m.endsAt} inline short />
+                </div>
                 
                 <div className="mt-3 flex flex-wrap gap-2 text-sm">
                   <span className="text-muted-foreground mr-1">Payments:</span>

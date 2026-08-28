@@ -2,13 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { getActiveMembershipQuery } from "@/lib/membership-utils";
 import { getGymLocalDayDate } from "@/lib/date-utils";
 import { toZonedTime } from "date-fns-tz";
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 import Link from "next/link";
 import { LockdownControls } from "./LockdownControls";
 import { redirect } from "next/navigation";
 import { requireRole, hasRole } from '@/lib/auth-helpers';
 import { TopBar } from "@/components/layout/TopBar";
 import { StatCard } from "@/components/ui/StatCard";
+import { DualDate } from "@/components/ui/DualDate";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Users, Activity, AlertTriangle, ShieldAlert } from "lucide-react";
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
     <>
       <TopBar 
         title="Dashboard" 
-        subtitle={format(gymCurrentTime, "EEEE, MMMM do, yyyy")} 
+        subtitle={<DualDate date={gymCurrentTime} inline short />} 
         action={isOwner ? <LockdownControls initialLockdown={settings?.lockdownMode || false} /> : undefined}
       />
       <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
@@ -112,7 +113,7 @@ export default async function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <Badge variant="warning">
-                        Ends {format(new Date(m.endsAt), "MMM d")}
+                        Ends <DualDate date={m.endsAt} inline short />
                       </Badge>
                     </div>
                   </div>

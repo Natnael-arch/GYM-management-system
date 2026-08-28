@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { format } from 'date-fns-tz';
 import { get, set } from 'idb-keyval';
+import { DualDate } from "@/components/ui/DualDate";
 
 type CheckInResult = {
   allowed: boolean;
@@ -291,7 +292,9 @@ export default function CheckInKioskPage() {
                 <div className="text-left">
                   <h1 className="text-7xl font-bold mb-4 drop-shadow-md">{result.member.name}</h1>
                   <h2 className="text-4xl font-semibold opacity-90">Access Granted</h2>
-                  <p className="text-xl mt-4 opacity-80">Membership active until {result.member.membershipEndsAt?.includes('Valid') ? result.member.membershipEndsAt : format(new Date(result.member.membershipEndsAt!), 'MMM d, yyyy')}</p>
+                  <p className="text-xl mt-4 opacity-80 flex gap-2 items-center">
+                    Membership active until: {result.member.membershipEndsAt?.includes('Valid') ? result.member.membershipEndsAt : <DualDate date={result.member.membershipEndsAt!} inline short />}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -322,7 +325,7 @@ export default function CheckInKioskPage() {
                 <span className={`text-xs font-bold px-2 py-1 rounded ${h.allowed ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
                   {h.allowed ? (h.isOfflineQueued ? 'QUEUED' : 'ALLOW') : 'DENY'}
                 </span>
-                <span className="text-xs opacity-70">{format(h.scannedAt, 'HH:mm:ss')}</span>
+                <span className="text-xs opacity-70"><DualDate date={h.scannedAt} includeTime inline short /></span>
               </div>
               <p className="font-semibold truncate">{h.allowed ? h.member?.name : h.reason}</p>
             </div>

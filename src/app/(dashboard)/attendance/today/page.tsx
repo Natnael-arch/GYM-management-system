@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { exportToCSV } from "@/lib/csv-export";
+import { DualDate } from "@/components/ui/DualDate";
 
 export default function TodayAttendancePage() {
   const [records, setRecords] = useState<any[]>([]);
@@ -97,7 +98,7 @@ export default function TodayAttendancePage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{format(new Date(record.checkInAt), "h:mm:ss a")}</div>
+                    <div className="text-sm text-gray-900"><DualDate date={record.checkInAt} includeTime short /></div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
