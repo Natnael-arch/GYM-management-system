@@ -31,6 +31,7 @@ export default function CheckInKioskPage() {
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [history, setHistory] = useState<CheckInResult[]>([]);
   const [queueCount, setQueueCount] = useState(0);
+  const [zktecoConnected, setZktecoConnected] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync Offline Manifest
@@ -94,6 +95,22 @@ export default function CheckInKioskPage() {
     };
 
     const interval = setInterval(replayQueue, 10000); // Check every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  // ZKTeco Status Polling
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/biometrics/status');
+        if (res.ok) {
+          const data = await res.json();
+          setZktecoConnected(data.connected);
+        }
+      } catch (err) {}
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -215,10 +232,23 @@ export default function CheckInKioskPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col p-8">
-      {queueCount > 0 && (
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col p-8 relative">
+      <div className="absolute top-4 right-4 flex items-center gap-4 z-40 bg-gray-800/80 px-4 py-2 rounded-full border border-gray-700">
+        {queueCount > 0 && (
+          <div className="text-orange-500 font-medium text-sm flex items-center gap-2 border-r border-gray-600 pr-4">
+            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+            Offline Queue: {queueCount}
+          </div>
+        )}
+        <div className={`font-medium text-sm flex items-center gap-2 ${zktecoConnected ? 'text-green-500' : 'text-gray-500'}`}>
+          <span className={`w-2 h-2 rounded-full ${zktecoConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+          ZKTeco {zktecoConnected ? 'Connected' : 'Offline'}
+        </div>
+      </div>
+
+      {!isOnline && (
         <div className="absolute top-0 left-0 w-full bg-orange-600 text-white text-center py-2 font-bold z-50 animate-pulse shadow-lg">
-          OFFLINE MODE — {queueCount} SCAN(S) QUEUED FOR SYNC
+          OFFLINE MODE ACTIVE - Checks are local, scans will sync later
         </div>
       )}
 

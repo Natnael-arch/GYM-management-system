@@ -9,9 +9,11 @@ datasource db {
 
 model User {
   id        String    @id @default(cuid())
-  name      String?
-  email     String?   @unique
-  password  String?
+  name          String?
+  email         String?   @unique
+  emailVerified Boolean?  @default(false)
+  image         String?
+  password      String?
   role      Role      @default(STAFF) // OWNER, STAFF
   member    Member?
   payments  Payment[]
@@ -46,14 +48,15 @@ model AuditLog {
 }
 
 model Member {
-  id          String          @id @default(cuid())
-  barcode     String          @unique
-  firstName   String
-  lastName    String
-  phone       String?
-  photoUrl    String?
-  isBlocked   Boolean         @default(false)
-  isArchived  Boolean         @default(false)
+  id           String          @id @default(cuid())
+  barcode      String          @unique
+  deviceUserId String?         @unique
+  firstName    String
+  lastName     String
+  phone        String?
+  photoUrl     String?
+  isBlocked    Boolean         @default(false)
+  isArchived   Boolean         @default(false)
   userId      String?         @unique
   user        User?           @relation(fields: [userId], references: [id])
   memberships Membership[]
@@ -144,6 +147,7 @@ model Account {
   providerId            String
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issuer                String?
   accessToken           String?
   refreshToken          String?
   idToken               String?
