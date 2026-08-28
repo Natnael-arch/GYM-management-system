@@ -57,6 +57,8 @@ model Member {
   photoUrl     String?
   isBlocked    Boolean         @default(false)
   isArchived   Boolean         @default(false)
+  biometricEnrolled Boolean    @default(false)
+  biometricRef String?
   userId      String?         @unique
   user        User?           @relation(fields: [userId], references: [id])
   memberships Membership[]
