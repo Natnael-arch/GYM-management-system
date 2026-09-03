@@ -15,9 +15,14 @@ async function testConnection(ip, port, commKey) {
     console.log("[Device Info]", info);
     
     // Retrieve users list
-    console.log("Fetching enrolled users...");
-    const users = await zkInstance.getUsers();
-    console.log(`[Users] Successfully fetched ${users.data.length} enrolled users.`);
+    let users = { data: [] };
+    if (info && info.userCounts > 0) {
+      console.log("Fetching enrolled users...");
+      users = await zkInstance.getUsers();
+      console.log(`[Users] Successfully fetched ${users.data.length} enrolled users.`);
+    } else {
+      console.log("[Users] Device is empty (0 users enrolled).");
+    }
     
     // Sample a user
     if (users.data.length > 0) {
@@ -33,7 +38,7 @@ async function testConnection(ip, port, commKey) {
 }
 
 const args = process.argv.slice(2);
-const targetIp = args[0];
+const targetIp = args[0] || process.env.ZKTECO_IP || '192.168.100.5';
 const targetPort = args[1] ? parseInt(args[1], 10) : 4370;
 const targetKey = args[2] || '0';
 

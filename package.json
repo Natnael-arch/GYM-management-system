@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "zk:diag": "python fingerprint-code/zk_manager.py diag",
+    "zk:info": "python fingerprint-code/zk_manager.py info",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {

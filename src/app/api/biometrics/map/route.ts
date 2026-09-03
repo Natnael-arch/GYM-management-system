@@ -19,13 +19,13 @@ export async function POST(request: Request) {
       // Clear anyone else who might have this deviceUserId first to avoid Unique Constraint errors
       await prisma.member.updateMany({
         where: { deviceUserId },
-        data: { deviceUserId: null }
+        data: { deviceUserId: null, biometricEnrolled: false }
       });
 
       // Map to the new member
       await prisma.member.update({
         where: { id: memberId },
-        data: { deviceUserId }
+        data: { deviceUserId, biometricEnrolled: true }
       });
       
       await logAuditAction(session.user.id, 'BIOMETRIC_MAP', 'Member', memberId, `Mapped to device user ${deviceUserId}`);
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       if (existing) {
         await prisma.member.update({
           where: { id: existing.id },
-          data: { deviceUserId: null }
+          data: { deviceUserId: null, biometricEnrolled: false }
         });
         await logAuditAction(session.user.id, 'BIOMETRIC_UNMAP', 'Member', existing.id, `Unmapped device user ${deviceUserId}`);
       }

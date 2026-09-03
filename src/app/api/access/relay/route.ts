@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
+import { zktecoService } from '@/lib/zkteco';
 
 export async function POST(request: Request) {
   try {
-    const { command } = await request.json();
+    const { command, seconds } = await request.json();
     
     if (command === 'unlock') {
-      // -------------------------------------------------------------
-      // DOOR CONTROL NO-OP STUB
-      // -------------------------------------------------------------
-      // This is where you would call a local USB relay daemon (e.g. via fetch to localhost:port)
-      // or an external API like Kisi (fetch to api.kisi.io/relays/unlock).
-      // Since hardware target is unconfirmed, this successfully no-ops.
       console.log(`[DOOR CONTROL] Relay trigger executed at ${new Date().toISOString()}`);
-      
-      return NextResponse.json({ success: true, message: 'Relay triggered (no-op)' });
+      const unlocked = await zktecoService.unlock(seconds || 3);
+      return NextResponse.json({ success: true, message: 'Relay triggered', unlocked });
     }
 
     return NextResponse.json({ error: 'Unknown command' }, { status: 400 });

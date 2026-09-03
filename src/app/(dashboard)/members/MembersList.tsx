@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Fingerprint } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { usePathname } from "next/navigation";
@@ -62,9 +62,14 @@ export function MembersList() {
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono mt-0.5">{member.barcode}</p>
-                <div className="flex gap-1 mt-1.5">
+                <div className="flex flex-wrap gap-1 mt-1.5">
                   {member.isBlocked && <Badge variant="danger">Blocked</Badge>}
                   {!member.isBlocked && member.memberships?.length > 0 && <Badge variant="success">Active</Badge>}
+                  {member.deviceUserId && (
+                    <Badge variant="neutral" className="flex items-center gap-0.5 text-[10px] py-0 px-1.5">
+                      <Fingerprint className="w-2.5 h-2.5 text-primary" /> PIN {member.deviceUserId}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </Link>

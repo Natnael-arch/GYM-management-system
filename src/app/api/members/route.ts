@@ -56,6 +56,7 @@ export async function POST(request: Request) {
   const lastName = formData.get('lastName') as string;
   const phone = formData.get('phone') as string;
   const photo = formData.get('photo') as File | null;
+  const deviceUserId = (formData.get('deviceUserId') as string) || null;
 
   if (!firstName || !lastName) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -84,9 +85,11 @@ export async function POST(request: Request) {
           phone,
           photoUrl,
           barcode,
+          deviceUserId: deviceUserId || undefined,
+          biometricEnrolled: !!deviceUserId,
         },
       });
-      await logAuditAction(session.user.id, 'MEMBER_CREATE', 'Member', member.id, { firstName, lastName });
+      await logAuditAction(session.user.id, 'MEMBER_CREATE', 'Member', member.id, { firstName, lastName, deviceUserId });
       return NextResponse.json(member, { status: 201 });
     } catch (error: any) {
       if (error.code === 'P2002' && error.meta?.target?.includes('barcode')) {

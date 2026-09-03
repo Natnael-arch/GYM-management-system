@@ -20,6 +20,15 @@ services:
     environment:
       DATABASE_URL: postgresql://gym_user:gym_password@postgres:5432/gym_db?schema=public
       BETTER_AUTH_SECRET: gym_secret_key_12345
+      ZKTECO_IP: ${ZKTECO_IP:-192.168.100.5}
+      ZKTECO_PORT: ${ZKTECO_PORT:-4370}
+      ZKTECO_PASSWORD: ${ZKTECO_PASSWORD:-0}
+      ZKTECO_TIMEOUT: ${ZKTECO_TIMEOUT:-10}
+      ZKTECO_PYTHON: python3
+      MOCK_ZKTECO: ${MOCK_ZKTECO:-false}
+    # NOTE: the MB100 must be reachable from this container on TCP 4370.
+    # If the device is on the host LAN, run the web service with
+    # network_mode: "host" (Linux) or put both on the same LAN/VLAN.
     depends_on:
       - postgres
     restart: unless-stopped

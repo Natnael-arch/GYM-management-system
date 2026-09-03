@@ -30,12 +30,16 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Python bridge for ZKTeco MB100 (pyzk is TCP-only here; no UDP fallback).
+RUN apk add --no-cache python3 py3-pip && pip3 install --no-cache-dir --break-system-packages pyzk future
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/fingerprint-code ./fingerprint-code
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing

@@ -9,19 +9,27 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await authClient.signIn.email({
-      email,
-      password,
-    });
-    if (data) {
-      router.push("/");
-    } else {
-      alert(error?.message || "Login failed");
+    setErrorMessage(null);
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email,
+        password,
+      });
+      if (data) {
+        router.push("/");
+        router.refresh();
+      } else {
+        setErrorMessage(error?.message || "Invalid email or password");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || "An unexpected error occurred during login");
       setLoading(false);
     }
   };
@@ -37,6 +45,12 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold tracking-tight text-center">Gym Access</h1>
           <p className="text-sm text-muted-foreground mt-1 text-center">Admin Dashboard</p>
         </div>
+
+        {errorMessage && (
+          <div className="mb-5 p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+            {errorMessage}
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2">

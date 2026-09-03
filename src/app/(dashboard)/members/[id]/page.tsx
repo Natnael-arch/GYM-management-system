@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
-import { Printer, Edit } from "lucide-react";
+import { Printer, Edit, Fingerprint, CheckCircle2, Loader2, X } from "lucide-react";
 
 export default function MemberDetailPanel({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -15,28 +15,99 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
   const [history, setHistory] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>({ page: 1, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [devicePin, setDevicePin] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollStatus, setEnrollStatus] = useState<string | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+
+  const fetchMember = async () => {
+    const res = await fetch(`/api/members/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setMember(data);
+      setDevicePin(data.deviceUserId || "");
+    }
+  };
 
   useEffect(() => {
-    const fetchMember = async () => {
-      const res = await fetch(`/api/members/${id}`);
-      if (res.ok) {
-        setMember(await res.json());
-      }
-    };
     fetchMember();
   }, [id]);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      setLoading(true);
-      const res = await fetch(`/api/members/${id}/attendance?page=${meta.page}&limit=10`);
+  const handleEnroll = async () => {
+    setEnrollError(null);
+    const pin = devicePin.trim() || String(Math.floor(1000 + Math.random() * 9000));
+    setDevicePin(pin);
+    setEnrolling(true);
+    setEnrollStatus("Place finger 3 times on the device sensor when prompted...");
+
+    try {
+      const res = await fetch("/api/biometrics/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceUserId: pin,
+          name: `${member.firstName} ${member.lastName}`.trim(),
+          memberId: id
+        })
+      });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
-        setHistory(data.data);
-        setMeta(data.meta);
+        setEnrollStatus("Fingerprint enrolled and linked successfully!");
+        fetchMember();
+        setTimeout(() => setShowEnrollModal(false), 2000);
+      } else {
+        setEnrollError(data.error || "Enrollment failed on device.");
       }
-      setLoading(false);
-    };
+    } catch (err: any) {
+      setEnrollError(err.message || "Failed to communicate with device");
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    setLoading(true);
+    const res = await fetch(`/api/members/${id}/attendance?page=${meta.page}&limit=10`);
+    if (res.ok) {
+      const data = await res.json();
+      setHistory(data.data);
+      setMeta(data.meta);
+    }
+    setLoading(false);
+  };
+
+  const [testingScan, setTestingScan] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+
+  const handleTestScan = async () => {
+    setTestingScan(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/check-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: member.barcode, method: 'BIOMETRIC' })
+      });
+      const data = await res.json();
+      setTestResult(data);
+      if (data.allowed) {
+        await fetch('/api/access/relay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: 'unlock', seconds: 3 })
+        });
+      }
+      fetchHistory();
+      setTimeout(() => setTestResult(null), 5000);
+    } catch (err: any) {
+      setTestResult({ allowed: false, reason: err.message });
+    } finally {
+      setTestingScan(false);
+    }
+  };
+
+  useEffect(() => {
     fetchHistory();
   }, [id, meta.page]);
 
@@ -45,8 +116,25 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
   const activeMembership = member.memberships?.find((m: any) => m.status === 'ACTIVE' && new Date(m.endsAt) >= new Date());
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-10">
-      <div className="max-w-4xl mx-auto space-y-10">
+    <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-10 relative">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {testResult && (
+          <div className={`p-4 rounded-xl border flex items-center justify-between ${testResult.allowed ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
+            <div className="flex items-center gap-3">
+              <Fingerprint className="w-5 h-5" />
+              <div>
+                <p className="font-semibold text-sm">
+                  {testResult.allowed ? "Access Granted — Locker Unlocked & Attendance Logged!" : `Access Denied (${testResult.reason || 'Not allowed'})`}
+                </p>
+                {testResult.checkedInAt && (
+                  <p className="text-xs opacity-80 mt-0.5">Checked in at: {new Date(testResult.checkedInAt).toLocaleTimeString()}</p>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setTestResult(null)} className="text-xs opacity-70 hover:opacity-100">Dismiss</button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
           <div className="flex items-center gap-6">
             {member.photoUrl ? (
@@ -65,16 +153,35 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
                   <Badge variant="neutral">No Active Membership</Badge>
                 )}
                 <Badge variant={member.biometricEnrolled ? "success" : "neutral"} className="flex gap-1 items-center">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
-                  {member.biometricEnrolled ? "Biometrics Enrolled" : "Biometrics Not Enrolled"}
+                  <Fingerprint className="w-3 h-3" />
+                  {member.biometricEnrolled ? `Biometrics Enrolled (PIN: ${member.deviceUserId})` : "Biometrics Not Enrolled"}
                 </Badge>
               </div>
             </div>
           </div>
-          <div className="flex gap-3 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
+            <button 
+              onClick={handleTestScan}
+              disabled={testingScan}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            >
+              {testingScan ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+              Test Scan
+            </button>
+            <button 
+              onClick={() => {
+                setShowEnrollModal(true);
+                setEnrollStatus(null);
+                setEnrollError(null);
+              }}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium rounded-lg transition-colors"
+            >
+              <Fingerprint className="w-4 h-4" />
+              {member.biometricEnrolled ? "Re-enroll" : "Enroll Finger"}
+            </button>
             <Link 
               href={`/members/${id}/edit`} 
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 border border-input bg-background hover:bg-muted text-sm font-medium rounded-lg transition-colors"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input bg-background hover:bg-muted text-sm font-medium rounded-lg transition-colors"
             >
               <Edit className="w-4 h-4" />
               Edit
@@ -82,13 +189,79 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
             <Link 
               href={`/cards/${id}`} 
               target="_blank" 
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium rounded-lg transition-colors"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium rounded-lg transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print Card
             </Link>
           </div>
         </div>
+
+        {/* Enroll Fingerprint Modal */}
+        {showEnrollModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Fingerprint className="w-5 h-5 text-primary" />
+                  Enroll Fingerprint on Device
+                </h3>
+                <button 
+                  onClick={() => setShowEnrollModal(false)}
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Ensure member is at the ZKTeco scanner. The device will beep and prompt to press the finger 3 times.
+              </p>
+
+              {enrollError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-xs text-destructive">
+                  {enrollError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Device PIN / ID</label>
+                <input 
+                  type="text" 
+                  value={devicePin}
+                  onChange={(e) => setDevicePin(e.target.value)}
+                  placeholder="Auto-generated (e.g. 101)"
+                  className="w-full border border-input bg-background rounded-lg p-2.5 text-sm"
+                />
+              </div>
+
+              {enrollStatus && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary font-medium flex items-center gap-2">
+                  {enrolling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                  {enrollStatus}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowEnrollModal(false)}
+                  className="px-4 py-2 border border-input bg-background rounded-lg text-sm font-medium hover:bg-muted"
+                >
+                  Close
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleEnroll}
+                  disabled={enrolling}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2"
+                >
+                  {enrolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Capturing...</> : "Start Capture"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           <h2 className="text-xl font-bold mb-4">Attendance History</h2>

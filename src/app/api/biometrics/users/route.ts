@@ -51,8 +51,17 @@ export async function GET(request: Request) {
       members,
       unmappedScansToday: unmappedScansCount
     });
-  } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Device unreachable';
+    console.error('[Biometrics users]', message);
+    // Stay usable offline: return empty lists + connected:false instead of 500
+    // so the mapping UI still renders with a clear error.
+    return NextResponse.json({
+      connected: false,
+      deviceUsers: { mapped: [], unmapped: [] },
+      members: [],
+      unmappedScansToday: 0,
+      error: message,
+    });
   }
 }

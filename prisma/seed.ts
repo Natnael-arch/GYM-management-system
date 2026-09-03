@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@better-auth/utils/password';
 import { subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -9,12 +9,15 @@ const TIMEZONE = 'Africa/Addis_Ababa';
 async function main() {
   const ownerEmail = process.env.SEED_OWNER_EMAIL || 'owner@gym.com';
   const ownerPassword = process.env.SEED_OWNER_PASSWORD || 'password123';
-  const hashedPassword = await bcrypt.hash(ownerPassword, 10);
+  const hashedPassword = await hashPassword(ownerPassword);
 
   // 1. Seed OWNER account
   const owner = await prisma.user.upsert({
     where: { email: ownerEmail },
-    update: {},
+    update: {
+      password: hashedPassword,
+      role: 'OWNER',
+    },
     create: {
       email: ownerEmail,
       name: 'Gym Owner',
@@ -29,23 +32,46 @@ async function main() {
     where: {
       providerId_accountId: { providerId: 'credential', accountId: owner.id },
     },
-    update: {},
+    update: {
+      password: hashedPassword,
+      issuer: 'local:credential',
+    },
     create: {
       userId: owner.id,
       providerId: 'credential',
       accountId: owner.id,
+      issuer: 'local:credential',
       password: hashedPassword,
     },
   });
 
-  // Create Plans
-  const monthlyPlan = await prisma.plan.create({
-    data: {
-      name: 'Monthly Plan',
-      durationDays: 30,
-      priceCents: 5000,
-    },
+  // Clean up existing demo seed data
+  await prisma.attendance.deleteMany({
+    where: { member: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } } }
   });
+  await prisma.deniedAttempt.deleteMany({
+    where: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } }
+  });
+  await prisma.membership.deleteMany({
+    where: { member: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } } }
+  });
+  await prisma.member.deleteMany({
+    where: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } }
+  });
+
+  // Create Plans
+  let monthlyPlan = await prisma.plan.findFirst({
+    where: { name: 'Monthly Plan' }
+  });
+  if (!monthlyPlan) {
+    monthlyPlan = await prisma.plan.create({
+      data: {
+        name: 'Monthly Plan',
+        durationDays: 30,
+        priceCents: 5000,
+      },
+    });
+  }
 
   // 2. Active member
   const activeMember = await prisma.member.create({

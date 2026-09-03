@@ -11,6 +11,7 @@ export default function BiometricsMappingPage() {
   const [unmappedUsers, setUnmappedUsers] = useState<DeviceUser[]>([]);
   const [members, setMembers] = useState<GymMember[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [deviceError, setDeviceError] = useState<string | null>(null);
   const [unmappedScansToday, setUnmappedScansToday] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -25,9 +26,13 @@ export default function BiometricsMappingPage() {
         setUnmappedUsers(data.deviceUsers.unmapped);
         setMembers(data.members);
         setUnmappedScansToday(data.unmappedScansToday || 0);
+        setDeviceError(data.error || null);
+      } else {
+        setDeviceError(data.error || 'Device unreachable');
       }
     } catch (err) {
       console.error(err);
+      setDeviceError('Failed to reach device API');
     }
     setLoading(false);
   };
@@ -70,6 +75,16 @@ export default function BiometricsMappingPage() {
           Refresh
         </button>
       </div>
+
+      {deviceError && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
+          <strong>Device offline:</strong> {deviceError}
+          <span className="block mt-1 text-amber-700">
+            Check same-LAN reachability on TCP 4370, firewall, and that no other process holds the device. Run{' '}
+            <code className="bg-amber-100 px-1 rounded">npm run zk:diag</code> on the server.
+          </span>
+        </div>
+      )}
 
       {unmappedScansToday > 0 && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 flex items-center gap-3">

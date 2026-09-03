@@ -11,7 +11,7 @@ export function SplitPanel({ left, right }: SplitPanelProps) {
       <div className="w-1/3 min-w-[320px] max-w-[400px] border-r border-border bg-card flex flex-col h-full overflow-hidden">
         {left}
       </div>
-      <div className="flex-1 bg-background flex flex-col h-full overflow-hidden">
+      <div className="flex-1 bg-background flex flex-col h-full overflow-y-auto">
         {right}
       </div>
     </div>

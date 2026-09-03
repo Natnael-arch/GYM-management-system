@@ -48,11 +48,16 @@ export async function PATCH(
   const photo = formData.get('photo') as File | null;
   const isBlocked = formData.get('isBlocked') as string | null;
   const isArchived = formData.get('isArchived') as string | null;
+  const deviceUserId = formData.get('deviceUserId') as string | null;
 
   const updateData: any = {};
   if (firstName) updateData.firstName = firstName;
   if (lastName) updateData.lastName = lastName;
   if (phone !== null) updateData.phone = phone;
+  if (deviceUserId !== null) {
+    updateData.deviceUserId = deviceUserId ? deviceUserId : null;
+    updateData.biometricEnrolled = !!deviceUserId;
+  }
 
   if (photo && photo.size > 0) {
     const bytes = await photo.arrayBuffer();
