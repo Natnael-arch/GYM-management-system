@@ -1,6 +1,8 @@
 import { zktecoService } from './lib/zkteco';
 import { prisma } from './lib/prisma';
 import { processCheckIn } from './lib/checkin-service';
+import { reconcileAllMembers } from './lib/device-sync';
+import { globalEmitter } from './lib/event-emitter';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
@@ -37,7 +39,7 @@ export async function register() {
         // Run through standard check-in logic with BIOMETRIC method
         const result = await processCheckIn(member.barcode, 'BIOMETRIC');
         console.log(`[ZKTeco Check-in] Result for ${member.firstName}:`, result);
-        
+
         if (result.allowed) {
           console.log(`[ZKTeco Access] Check-in granted. Triggering relay unlock...`);
           await zktecoService.unlock(3);
@@ -46,5 +48,30 @@ export async function register() {
         console.error('[ZKTeco] Error processing check-in event:', err);
       }
     });
+
+    // Nightly reconciliation at midnight: sweep all enrolled members and remove
+    // any whose membership has expired. This catches expirations that happen
+    // between scans (no event fires when a membership quietly expires).
+    function scheduleNightlyReconcile() {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 30, 0); // 00:00:30 next day
+      const msUntilMidnight = midnight.getTime() - now.getTime();
+
+      setTimeout(async () => {
+        console.log('[DeviceSync] Running nightly membership expiry reconciliation...');
+        try {
+          await reconcileAllMembers();
+        } catch (err) {
+          console.error('[DeviceSync] Nightly reconcile error:', err);
+        }
+        // Schedule next run in 24h
+        scheduleNightlyReconcile();
+      }, msUntilMidnight);
+
+      console.log(`[DeviceSync] Nightly reconcile scheduled in ${Math.round(msUntilMidnight / 60000)}min`);
+    }
+
+    scheduleNightlyReconcile();
   }
 }

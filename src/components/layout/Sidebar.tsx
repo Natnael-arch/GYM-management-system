@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { LayoutDashboard, Users, CreditCard, Dumbbell, ShieldAlert, FileText, Sun, Moon, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Dumbbell, ShieldAlert, FileText, Sun, Moon, LogOut, CalendarCheck, Fingerprint } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 
 import { authClient } from '@/lib/auth-client';
@@ -42,6 +42,7 @@ export function Sidebar() {
       items: [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/members', label: 'Members', icon: Users },
+        { href: '/attendance/today', label: 'Attendance', icon: CalendarCheck },
       ]
     },
     {
@@ -49,6 +50,7 @@ export function Sidebar() {
       items: [
         { href: '/payments', label: 'Payments', icon: CreditCard },
         ...((session?.user as any)?.role === 'OWNER' ? [{ href: '/plans', label: 'Plans', icon: Dumbbell }] : []),
+        ...((session?.user as any)?.role === 'OWNER' ? [{ href: '/biometrics', label: 'Biometrics', icon: Fingerprint }] : []),
       ]
     },
     {

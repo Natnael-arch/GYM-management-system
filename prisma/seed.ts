@@ -1,10 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '@better-auth/utils/password';
-import { subDays } from 'date-fns';
-import { formatInTimeZone } from 'date-fns-tz';
 
 const prisma = new PrismaClient();
-const TIMEZONE = 'Africa/Addis_Ababa';
 
 async function main() {
   const ownerEmail = process.env.SEED_OWNER_EMAIL || 'owner@gym.com';
@@ -14,10 +11,7 @@ async function main() {
   // 1. Seed OWNER account
   const owner = await prisma.user.upsert({
     where: { email: ownerEmail },
-    update: {
-      password: hashedPassword,
-      role: 'OWNER',
-    },
+    update: { password: hashedPassword, role: 'OWNER' },
     create: {
       email: ownerEmail,
       name: 'Gym Owner',
@@ -25,17 +19,12 @@ async function main() {
       role: 'OWNER',
     },
   });
-  console.log(`Owner created: ${owner.email}`);
+  console.log(`Owner account: ${owner.email}`);
 
   // Create an Account record for better-auth
   await prisma.account.upsert({
-    where: {
-      providerId_accountId: { providerId: 'credential', accountId: owner.id },
-    },
-    update: {
-      password: hashedPassword,
-      issuer: 'local:credential',
-    },
+    where: { providerId_accountId: { providerId: 'credential', accountId: owner.id } },
+    update: { password: hashedPassword, issuer: 'local:credential' },
     create: {
       userId: owner.id,
       providerId: 'credential',
@@ -45,114 +34,42 @@ async function main() {
     },
   });
 
-  // Clean up existing demo seed data
-  await prisma.attendance.deleteMany({
-    where: { member: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } } }
-  });
-  await prisma.deniedAttempt.deleteMany({
-    where: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } }
-  });
-  await prisma.membership.deleteMany({
-    where: { member: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } } }
-  });
-  await prisma.member.deleteMany({
-    where: { barcode: { in: ['MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE'] } }
-  });
+  // 2. Remove any leftover demo / test data (safe to run on clean DB too)
+  const junkBarcodes = [
+    'MEMBER_ACTIVE', 'MEMBER_EXPIRED', 'MEMBER_BLOCKED', 'MEMBER_NONE',
+    'ACTIVE123', 'EXPIRED123', 'BLOCKED123', 'RACE123',
+    'LOCKDOWN123', 'FREEZE123', 'BOUND123',
+  ];
+  await prisma.attendance.deleteMany({ where: { member: { barcode: { in: junkBarcodes } } } });
+  await prisma.deniedAttempt.deleteMany({ where: { barcode: { in: junkBarcodes } } });
+  await prisma.membership.deleteMany({ where: { member: { barcode: { in: junkBarcodes } } } });
+  await prisma.member.deleteMany({ where: { barcode: { in: junkBarcodes } } });
 
-  // Create Plans
-  let monthlyPlan = await prisma.plan.findFirst({
-    where: { name: 'Monthly Plan' }
-  });
-  if (!monthlyPlan) {
-    monthlyPlan = await prisma.plan.create({
-      data: {
-        name: 'Monthly Plan',
-        durationDays: 30,
-        priceCents: 5000,
-      },
-    });
+  // 3. Seed default membership plans (idempotent - safe to re-run)
+  const defaultPlans = [
+    { name: 'Daily Pass',     durationDays: 1,   priceCents: 10000   },
+    { name: 'Weekly Plan',    durationDays: 7,   priceCents: 50000   },
+    { name: 'Monthly Plan',   durationDays: 30,  priceCents: 150000  },
+    { name: 'Quarterly Plan', durationDays: 90,  priceCents: 400000  },
+    { name: 'Annual Plan',    durationDays: 365, priceCents: 1400000 },
+  ];
+
+  for (const plan of defaultPlans) {
+    const existing = await prisma.plan.findFirst({ where: { name: plan.name } });
+    if (!existing) {
+      await prisma.plan.create({ data: plan });
+      console.log(`Plan created: ${plan.name}`);
+    }
   }
 
-  // 2. Active member
-  const activeMember = await prisma.member.create({
-    data: {
-      barcode: 'MEMBER_ACTIVE',
-      firstName: 'Alice',
-      lastName: 'Active',
-      memberships: {
-        create: {
-          planId: monthlyPlan.id,
-          startsAt: new Date(),
-          endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          status: 'ACTIVE',
-        },
-      },
-    },
+  // 4. Ensure SystemSettings row exists
+  await prisma.systemSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default', lockdownMode: false },
   });
 
-  // 3. Expired member
-  const expiredMember = await prisma.member.create({
-    data: {
-      barcode: 'MEMBER_EXPIRED',
-      firstName: 'Bob',
-      lastName: 'Expired',
-      memberships: {
-        create: {
-          planId: monthlyPlan.id,
-          startsAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-          endsAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          status: 'EXPIRED',
-        },
-      },
-    },
-  });
-
-  // 4. Blocked member
-  const blockedMember = await prisma.member.create({
-    data: {
-      barcode: 'MEMBER_BLOCKED',
-      firstName: 'Charlie',
-      lastName: 'Blocked',
-      isBlocked: true,
-      memberships: {
-        create: {
-          planId: monthlyPlan.id,
-          startsAt: new Date(),
-          endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          status: 'ACTIVE',
-        },
-      },
-    },
-  });
-
-  // 5. Member with no membership
-  const noneMember = await prisma.member.create({
-    data: {
-      barcode: 'MEMBER_NONE',
-      firstName: 'Dave',
-      lastName: 'NoMembership',
-    },
-  });
-
-  // 6. Backdated Attendance for active member (1 week)
-  const now = new Date();
-  for (let i = 1; i <= 7; i++) {
-    const checkInTime = subDays(now, i);
-    // Africa/Addis_Ababa timezone date string parsing/formatting
-    const dateStr = formatInTimeZone(checkInTime, TIMEZONE, 'yyyy-MM-dd');
-    const localDayStart = new Date(`${dateStr}T00:00:00Z`);
-
-    await prisma.attendance.create({
-      data: {
-        memberId: activeMember.id,
-        checkInAt: checkInTime,
-        checkInDate: localDayStart,
-        method: 'BARCODE',
-      },
-    });
-  }
-
-  console.log('Seeding complete! Created members:', activeMember.id, expiredMember.id, blockedMember.id, noneMember.id);
+  console.log('\nProduction seed complete. No demo data. System ready for handover.');
 }
 
 main()

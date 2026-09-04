@@ -6,6 +6,7 @@ import { getActiveMembershipQuery } from '@/lib/membership-utils';
 import { toZonedTime } from 'date-fns-tz';
 import { addDays } from 'date-fns';
 import { logAuditAction } from '@/lib/audit';
+import { syncMemberAccess } from '@/lib/device-sync';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -63,6 +64,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
 
     await logAuditAction(staffId, activeMembership ? 'MEMBERSHIP_RENEW' : 'MEMBERSHIP_ISSUE', 'Membership', result.id, { planId, paymentAmountCents, paymentMethod });
+
+    // Restore device access now that member has an active membership.
+    syncMemberAccess(memberId).catch((err) =>
+      console.error('[DeviceSync] membership POST sync error:', err)
+    );
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

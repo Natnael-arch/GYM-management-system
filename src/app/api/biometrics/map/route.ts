@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
+import { syncMemberAccess } from '@/lib/device-sync';
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,11 @@ export async function POST(request: Request) {
       });
       
       await logAuditAction(session.user.id, 'BIOMETRIC_MAP', 'Member', memberId, `Mapped to device user ${deviceUserId}`);
+
+      // Enforce access: remove from device if member has no active membership
+      syncMemberAccess(memberId).catch(err =>
+        console.error('[DeviceSync] map sync error:', err)
+      );
     } else {
       // Unmap completely
       const existing = await prisma.member.findUnique({ where: { deviceUserId } });

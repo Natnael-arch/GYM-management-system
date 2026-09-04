@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
+import { LiveActivityFeed } from '@/components/ui/LiveActivityFeed';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -26,13 +28,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       <Sidebar />
       <div className="pl-64 flex flex-col min-h-screen">
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-x-hidden relative">
           {children}
         </main>
       </div>
+      <LiveActivityFeed />
     </div>
   );
 }

@@ -161,6 +161,43 @@ class ZKController:
             except Exception:
                 pass
 
+    def delete_user(self, user_id):
+        """Delete a user (and their fingerprint template) from the device by user_id string."""
+        if not self.conn:
+            return {"success": False, "error": "Not connected"}
+        user_id = str(user_id).strip()
+        if not user_id:
+            return {"success": False, "error": "user_id is required"}
+        try:
+            users = self._read_users()
+        except Exception:
+            users = []
+        uid = None
+        for u in users or []:
+            if str(getattr(u, "user_id", "")) == user_id:
+                uid = getattr(u, "uid", None)
+                break
+        if uid is None:
+            # Not on device — treat as success (idempotent).
+            return {"success": True, "note": "User not found on device (already removed)"}
+        self.conn.disable_device()
+        try:
+            self.conn.delete_user(uid=int(uid))
+            try:
+                self.conn.refresh_data()
+            except Exception:
+                pass
+            _log(f"[+] Deleted device user uid={uid} user_id={user_id}")
+            return {"success": True, "uid": int(uid), "user_id": user_id}
+        except Exception as e:
+            _log(f"[-] delete_user failed: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            try:
+                self.conn.enable_device()
+            except Exception:
+                pass
+
     def wipe_device(self):
         """Clear ATTENDANCE LOGS ONLY. Never CMD_CLEAR_DATA (wipes users)."""
         if not self.conn:
@@ -454,6 +491,12 @@ def main():
             user_id = sys.argv[2] if len(sys.argv) > 2 else "1"
             name = " ".join(sys.argv[3:]) if len(sys.argv) > 3 else ""
             _emit(ctrl.enroll_fingerprint(user_id, name))
+        elif action == "delete":
+            user_id = sys.argv[2] if len(sys.argv) > 2 else ""
+            print(f"[+] Delete result: {ctrl.delete_user(user_id)}")
+        elif action == "json_delete_user":
+            user_id = sys.argv[2] if len(sys.argv) > 2 else ""
+            _emit(ctrl.delete_user(user_id))
         elif action == "listen":
             ctrl.live_listen()
         else:

@@ -3,6 +3,7 @@ import { zktecoService } from '@/lib/zkteco';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
+import { syncMemberAccess } from '@/lib/device-sync';
 
 export async function POST(request: Request) {
   try {
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
       });
 
       await logAuditAction(session.user.id, 'BIOMETRIC_ENROLL', 'Member', memberId, `Enrolled fingerprint to device user ${pin}`);
+
+      // Immediately enforce access rules: if member has no active membership,
+      // remove them from the device so the finger scan is rejected until they pay.
+      const syncResult = await syncMemberAccess(memberId);
+      console.log(`[Biometrics API] Post-enroll sync for member ${memberId}:`, syncResult);
     }
 
     return NextResponse.json({ 

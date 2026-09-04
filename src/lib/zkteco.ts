@@ -436,6 +436,32 @@ class ZKTecoService extends EventEmitter {
     }
   }
 
+  async deleteUser(deviceUserId: string): Promise<{ success: boolean; error?: string; note?: string }> {
+    if (this.mockMode) {
+      console.log(`[ZKTeco Mock] Deleted device user: ${deviceUserId}`);
+      return { success: true };
+    }
+    const pin = String(deviceUserId).trim();
+    if (!pin) return { success: false, error: 'deviceUserId is required' };
+    try {
+      // Pause live listener — single connection device.
+      this.isConnected = false;
+      await this.stopListener();
+      await new Promise((r) => setTimeout(r, 1000));
+      const res = await this.runPython<{ success: boolean; error?: string; note?: string }>(
+        'json_delete_user',
+        pin,
+      );
+      await this.connect();
+      return res;
+    } catch (err: unknown) {
+      await this.connect();
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[ZKTeco] deleteUser failed:', msg);
+      return { success: false, error: msg };
+    }
+  }
+
   getStatus() {
     return this.isConnected;
   }

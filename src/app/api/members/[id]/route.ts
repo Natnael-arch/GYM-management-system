@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole, hasRole } from '@/lib/auth-helpers';
 import { logAuditAction } from '@/lib/audit';
+import { syncMemberAccess } from '@/lib/device-sync';
 
 export async function GET(
   request: Request,
@@ -82,6 +83,12 @@ export async function PATCH(
       data: updateData,
     });
     await logAuditAction(session.user.id, 'MEMBER_UPDATE', 'Member', id, updateData);
+
+    // Sync device access in background (non-blocking) after any state change.
+    syncMemberAccess(id).catch((err) =>
+      console.error('[DeviceSync] member PATCH sync error:', err)
+    );
+
     return NextResponse.json(member);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

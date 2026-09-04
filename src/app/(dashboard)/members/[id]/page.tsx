@@ -179,6 +179,20 @@ export default function MemberDetailPanel({ params }: { params: Promise<{ id: st
               <Fingerprint className="w-4 h-4" />
               {member.biometricEnrolled ? "Re-enroll" : "Enroll Finger"}
             </button>
+            <button
+              onClick={async () => {
+                if (!confirm(member.isBlocked ? "Unban this member?" : "Ban this member?")) return;
+                const fd = new FormData();
+                fd.append("isBlocked", member.isBlocked ? "false" : "true");
+                const res = await fetch(`/api/members/${id}`, { method: "PATCH", body: fd });
+                if (res.ok) fetchMember();
+                else alert("Failed to ban/unban. Only OWNER can do this.");
+              }}
+              className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors ${member.isBlocked ? 'bg-background border border-input hover:bg-muted' : 'bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20'}`}
+            >
+              <X className="w-4 h-4" />
+              {member.isBlocked ? "Unban" : "Ban"}
+            </button>
             <Link 
               href={`/members/${id}/edit`} 
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input bg-background hover:bg-muted text-sm font-medium rounded-lg transition-colors"

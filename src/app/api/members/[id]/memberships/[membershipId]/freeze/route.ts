@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { logAuditAction } from '@/lib/audit';
+import { syncMemberAccess } from '@/lib/device-sync';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string, membershipId: string }> }) {
   try {
@@ -25,6 +26,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     await logAuditAction(session.user.id, freeze ? 'MEMBERSHIP_FREEZE' : 'MEMBERSHIP_UNFREEZE', 'Membership', membershipId);
+
+    // Sync device: freeze removes from device, unfreeze restores.
+    syncMemberAccess(membership.memberId).catch((err) =>
+      console.error('[DeviceSync] freeze sync error:', err)
+    );
 
     return NextResponse.json(updated);
   } catch (error) {
