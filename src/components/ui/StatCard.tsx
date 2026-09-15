@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { LucideIcon } from 'lucide-react';
 
 interface StatCardProps {
@@ -7,30 +8,48 @@ interface StatCardProps {
   icon: LucideIcon;
   variant?: 'count' | 'money' | 'warning' | 'danger';
   subtext?: string;
+  href?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, variant = 'count', subtext }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, variant = 'count', subtext, href }: StatCardProps) {
   const iconColors = {
-    count: 'bg-primary/10 text-primary',
-    money: 'bg-success/10 text-success',
-    warning: 'bg-warning/10 text-warning',
-    danger: 'bg-destructive/10 text-destructive',
+    count: 'text-primary',
+    money: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-destructive',
   };
 
+  const valueColors = {
+    count: 'text-foreground',
+    money: 'text-foreground',
+    warning: 'text-warning',
+    danger: 'text-destructive',
+  };
+
+  const inner = (
+    <div className="flex items-center gap-3">
+      <Icon className={`w-4 h-4 shrink-0 ${iconColors[variant]}`} />
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider leading-tight">{title}</p>
+        <p className={`text-xl font-bold tabular-nums leading-tight ${valueColors[variant]}`}>
+          {value}
+          {subtext && <span className="text-xs font-normal text-muted-foreground ml-1.5">{subtext}</span>}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="bg-card border border-border rounded-lg px-4 py-3 hover:bg-muted/40 transition-colors block">
+        {inner}
+      </Link>
+    );
+  }
+
   return (
-    <div className="bg-card text-card-foreground rounded-2xl p-4 border border-border shadow-sm flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-2 rounded-full ${iconColors[variant]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</h3>
-        <p className="text-3xl font-bold tabular-nums mt-1">{value}</p>
-        {subtext && (
-          <p className="text-sm text-muted-foreground mt-1">{subtext}</p>
-        )}
-      </div>
+    <div className="bg-card border border-border rounded-lg px-4 py-3">
+      {inner}
     </div>
   );
 }

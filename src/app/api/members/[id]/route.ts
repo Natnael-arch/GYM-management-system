@@ -61,6 +61,16 @@ export async function PATCH(
   }
 
   if (photo && photo.size > 0) {
+    const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+    const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (photo.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: 'Photo must be under 5 MB' }, { status: 400 });
+    }
+    if (!ALLOWED_PHOTO_TYPES.includes(photo.type)) {
+      return NextResponse.json({ error: 'Photo must be JPEG, PNG, or WebP' }, { status: 400 });
+    }
+
     const bytes = await photo.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const filename = `${Date.now()}-${photo.name}`;
@@ -72,7 +82,15 @@ export async function PATCH(
   // Only OWNER can block/archive
   if (hasRole(session, ['OWNER'])) {
     if (isBlocked !== null) updateData.isBlocked = isBlocked === 'true';
-    if (isArchived !== null) updateData.isArchived = isArchived === 'true';
+    if (isArchived !== null) {
+      updateData.isArchived = isArchived === 'true';
+      // Archiving removes them from the device — clear the slot in DB too
+      // so the PIN is free to be reused and the biometric state is truthful.
+      if (updateData.isArchived) {
+        updateData.biometricEnrolled = false;
+        updateData.deviceUserId = null;
+      }
+    }
   } else if (isBlocked !== null || isArchived !== null) {
     return NextResponse.json({ error: 'Forbidden: Only OWNER can block or archive members' }, { status: 403 });
   }
@@ -82,9 +100,18 @@ export async function PATCH(
       where: { id },
       data: updateData,
     });
-    await logAuditAction(session.user.id, 'MEMBER_UPDATE', 'Member', id, updateData);
 
-    // Sync device access in background (non-blocking) after any state change.
+    const auditAction = updateData.isArchived === true
+      ? 'MEMBER_ARCHIVE'
+      : updateData.isBlocked === true
+        ? 'MEMBER_BLOCK'
+        : updateData.isBlocked === false
+          ? 'MEMBER_UNBLOCK'
+          : 'MEMBER_UPDATE';
+
+    await logAuditAction(session.user.id, auditAction, 'Member', id, updateData);
+
+    // Sync device: removes fingerprint from device when archived or blocked.
     syncMemberAccess(id).catch((err) =>
       console.error('[DeviceSync] member PATCH sync error:', err)
     );
@@ -94,3 +121,4 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

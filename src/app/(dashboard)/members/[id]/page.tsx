@@ -6,468 +6,612 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/DataTable";
-import { Printer, Edit, Fingerprint, CheckCircle2, Loader2, X } from "lucide-react";
+import { Printer, Edit, Fingerprint, CheckCircle2, Loader2, X, ChevronLeft, ChevronRight, Archive } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Plan = { id: string; name: string; durationDays: number; priceCents: number };
+type Payment = { id: string; amountCents: number; method: string; paidAt: string };
+type Membership = {
+  id: string;
+  planId: string;
+  plan: Plan;
+  startsAt: string;
+  endsAt: string;
+  status: "ACTIVE" | "EXPIRED" | "FROZEN";
+  frozenAt: string | null;
+  payments: Payment[];
+};
+type Member = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  barcode: string;
+  phone?: string;
+  photoUrl: string | null;
+  isBlocked: boolean;
+  biometricEnrolled: boolean;
+  deviceUserId: string | null;
+  memberships: Membership[];
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function membershipBadgeVariant(m: Membership): "success" | "warning" | "neutral" {
+  if (m.status === "FROZEN") return "warning";
+  if (m.status === "EXPIRED" || new Date(m.endsAt) < new Date()) return "neutral";
+  return "success";
+}
+
+function activeMembership(member: Member): Membership | undefined {
+  return member.memberships.find(
+    (m) => m.status === "ACTIVE" && new Date(m.endsAt) >= new Date()
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function InlinePaymentForm({
+  membershipId,
+  onSuccess,
+  onCancel,
+}: {
+  membershipId: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("CASH");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountCents = Math.round(parseFloat(amount) * 100);
+    if (!amount || isNaN(amountCents) || amountCents <= 0) {
+      setError("Enter a valid amount.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const res = await fetch("/api/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ membershipId, amountCents, method }),
+    });
+    if (res.ok) {
+      onSuccess();
+    } else {
+      const d = await res.json();
+      setError(d.error || "Failed to record payment.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="mt-2 flex items-center gap-2 pt-2 border-t border-border"
+    >
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        placeholder="Amount (ETB)"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        className="w-32 px-2 py-1 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        autoFocus
+      />
+      <select
+        value={method}
+        onChange={(e) => setMethod(e.target.value)}
+        className="px-2 py-1 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <option value="CASH">Cash</option>
+        <option value="BANK">Bank</option>
+        <option value="CARD">Card</option>
+      </select>
+      <button
+        type="submit"
+        disabled={saving}
+        className="px-3 py-1 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+      >
+        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-3 py-1 border border-input rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
+      >
+        Cancel
+      </button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </form>
+  );
+}
+
+function ConfirmAction({
+  label,
+  confirmLabel,
+  onConfirm,
+  destructive,
+}: {
+  label: string;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+  destructive?: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (confirming) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span className="text-xs text-muted-foreground">{confirmLabel}</span>
+        <button
+          onClick={async () => {
+            setLoading(true);
+            await onConfirm();
+            setConfirming(false);
+            setLoading(false);
+          }}
+          className={`px-2 py-0.5 rounded text-xs font-semibold ${destructive ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+        >
+          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Yes"}
+        </button>
+        <button
+          onClick={() => setConfirming(false)}
+          className="px-2 py-0.5 rounded text-xs border border-input hover:bg-muted"
+        >
+          No
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors ${
+        destructive
+          ? "border-destructive/30 text-destructive hover:bg-destructive/10"
+          : "border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function MemberDetailPanel({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  
-  const [member, setMember] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [meta, setMeta] = useState<any>({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
+  const isOwner = (session?.user as any)?.role === "OWNER";
+
+  const [member, setMember] = useState<Member | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+
+  // Issue form state
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [issueAmount, setIssueAmount] = useState("");
+  const [issueMethod, setIssueMethod] = useState("CASH");
+  const [issuing, setIssuing] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+
+  // Inline payment recording: holds membershipId currently open for payment entry
+  const [recordingPaymentFor, setRecordingPaymentFor] = useState<string | null>(null);
+
+  // Biometric enroll modal
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [devicePin, setDevicePin] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [enrollStatus, setEnrollStatus] = useState<string | null>(null);
   const [enrollError, setEnrollError] = useState<string | null>(null);
 
-  const fetchMember = async () => {
+  // Attendance
+  const [history, setHistory] = useState<any[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
+
+  const refresh = async () => {
     const res = await fetch(`/api/members/${id}`);
     if (res.ok) {
-      const data = await res.json();
+      const data: Member = await res.json();
       setMember(data);
       setDevicePin(data.deviceUserId || "");
     }
   };
 
+  const fetchAttendance = async (page: number) => {
+    setAttendanceLoading(true);
+    const res = await fetch(`/api/members/${id}/attendance?page=${page}&limit=10`);
+    if (res.ok) {
+      const data = await res.json();
+      setHistory(data.data);
+      setMeta(data.meta);
+    }
+    setAttendanceLoading(false);
+  };
+
   useEffect(() => {
-    fetchMember();
+    refresh();
+    fetch("/api/plans").then((r) => r.json()).then(setPlans);
   }, [id]);
+
+  useEffect(() => {
+    fetchAttendance(meta.page);
+  }, [id, meta.page]);
+
+  // Pre-fill amount when plan is selected
+  useEffect(() => {
+    if (!selectedPlanId) return;
+    const plan = plans.find((p) => p.id === selectedPlanId);
+    if (plan) setIssueAmount((plan.priceCents / 100).toFixed(2));
+  }, [selectedPlanId, plans]);
+
+  const handleIssue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIssueError(null);
+    const amountCents = Math.round(parseFloat(issueAmount) * 100);
+    if (!issueAmount || isNaN(amountCents) || amountCents <= 0) {
+      setIssueError("Payment amount is required.");
+      return;
+    }
+    setIssuing(true);
+    const res = await fetch(`/api/members/${id}/memberships`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        planId: selectedPlanId,
+        paymentAmountCents: amountCents,
+        paymentMethod: issueMethod,
+      }),
+    });
+    if (res.ok) {
+      setSelectedPlanId("");
+      setIssueAmount("");
+      refresh();
+    } else {
+      const d = await res.json();
+      setIssueError(d.error || "Failed to issue membership.");
+    }
+    setIssuing(false);
+  };
 
   const handleEnroll = async () => {
     setEnrollError(null);
     const pin = devicePin.trim() || String(Math.floor(1000 + Math.random() * 9000));
     setDevicePin(pin);
     setEnrolling(true);
-    setEnrollStatus("Place finger 3 times on the device sensor when prompted...");
-
+    setEnrollStatus("Place finger 3× on the device sensor when prompted...");
     try {
       const res = await fetch("/api/biometrics/enroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deviceUserId: pin,
-          name: `${member.firstName} ${member.lastName}`.trim(),
-          memberId: id
-        })
+        body: JSON.stringify({ deviceUserId: pin, name: `${member?.firstName} ${member?.lastName}`.trim(), memberId: id }),
       });
       const data = await res.json();
       if (res.ok) {
-        setEnrollStatus("Fingerprint enrolled and linked successfully!");
-        fetchMember();
-        setTimeout(() => setShowEnrollModal(false), 2000);
+        setEnrollStatus("Enrolled successfully.");
+        refresh();
+        setTimeout(() => setShowEnrollModal(false), 1500);
       } else {
         setEnrollError(data.error || "Enrollment failed on device.");
       }
     } catch (err: any) {
-      setEnrollError(err.message || "Failed to communicate with device");
+      setEnrollError(err.message || "Cannot reach device.");
     } finally {
       setEnrolling(false);
     }
   };
 
-  const fetchHistory = async () => {
-    setLoading(true);
-    const res = await fetch(`/api/members/${id}/attendance?page=${meta.page}&limit=10`);
-    if (res.ok) {
-      const data = await res.json();
-      setHistory(data.data);
-      setMeta(data.meta);
-    }
-    setLoading(false);
-  };
+  if (!member) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
-  const [testingScan, setTestingScan] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
-
-  const handleTestScan = async () => {
-    setTestingScan(true);
-    setTestResult(null);
-    try {
-      const res = await fetch('/api/check-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode: member.barcode, method: 'BIOMETRIC' })
-      });
-      const data = await res.json();
-      setTestResult(data);
-      if (data.allowed) {
-        await fetch('/api/access/relay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: 'unlock', seconds: 3 })
-        });
-      }
-      fetchHistory();
-      setTimeout(() => setTestResult(null), 5000);
-    } catch (err: any) {
-      setTestResult({ allowed: false, reason: err.message });
-    } finally {
-      setTestingScan(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHistory();
-  }, [id, meta.page]);
-
-  if (!member) return <div className="p-8 text-center text-muted-foreground flex-1 flex items-center justify-center">Loading profile...</div>;
-
-  const activeMembership = member.memberships?.find((m: any) => m.status === 'ACTIVE' && new Date(m.endsAt) >= new Date());
+  const active = activeMembership(member);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-10 relative">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {testResult && (
-          <div className={`p-4 rounded-xl border flex items-center justify-between ${testResult.allowed ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
-            <div className="flex items-center gap-3">
-              <Fingerprint className="w-5 h-5" />
-              <div>
-                <p className="font-semibold text-sm">
-                  {testResult.allowed ? "Access Granted — Locker Unlocked & Attendance Logged!" : `Access Denied (${testResult.reason || 'Not allowed'})`}
-                </p>
-                {testResult.checkedInAt && (
-                  <p className="text-xs opacity-80 mt-0.5">Checked in at: {new Date(testResult.checkedInAt).toLocaleTimeString()}</p>
-                )}
-              </div>
-            </div>
-            <button onClick={() => setTestResult(null)} className="text-xs opacity-70 hover:opacity-100">Dismiss</button>
-          </div>
-        )}
+    <div className="flex-1 overflow-y-auto bg-background">
+      <div className="max-w-3xl mx-auto px-5 py-5 space-y-8">
 
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
-          <div className="flex items-center gap-6">
-            {member.photoUrl ? (
-              <img src={member.photoUrl} alt="Photo" className="w-24 h-24 rounded-full object-cover shadow-sm ring-4 ring-background" />
-            ) : (
-              <Avatar name={`${member.firstName} ${member.lastName}`} className="w-24 h-24 text-3xl shadow-sm ring-4 ring-background" />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{member.firstName} {member.lastName}</h1>
-              <p className="text-muted-foreground font-mono mt-1 text-sm">{member.barcode}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {member.isBlocked && <Badge variant="danger">Blocked</Badge>}
-                {activeMembership ? (
-                  <Badge variant="success">Active until <DualDate date={activeMembership.endsAt} inline short /></Badge>
-                ) : (
-                  <Badge variant="neutral">No Active Membership</Badge>
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-start gap-4">
+          {member.photoUrl ? (
+            <img src={member.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover shrink-0" />
+          ) : (
+            <Avatar name={`${member.firstName} ${member.lastName}`} className="w-16 h-16 text-xl shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-lg font-bold leading-tight">{member.firstName} {member.lastName}</h1>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">{member.barcode}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {member.isBlocked && <Badge variant="danger">Blocked</Badge>}
+                  {active ? (
+                    <Badge variant="success">Active · expires <DualDate date={active.endsAt} inline short /></Badge>
+                  ) : (
+                    <Badge variant="neutral">No active membership</Badge>
+                  )}
+                  {member.biometricEnrolled && (
+                    <Badge variant="neutral" className="flex items-center gap-1">
+                      <Fingerprint className="w-2.5 h-2.5" /> PIN {member.deviceUserId}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Link
+                  href={`/members/${id}/edit`}
+                  className="px-2.5 py-1.5 border border-input rounded-md text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </Link>
+                <Link
+                  href={`/cards/${id}`}
+                  target="_blank"
+                  className="px-2.5 py-1.5 border border-input rounded-md text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  onClick={() => { setShowEnrollModal(true); setEnrollStatus(null); setEnrollError(null); }}
+                  className="px-2.5 py-1.5 border border-input rounded-md text-xs font-medium hover:bg-muted transition-colors"
+                  title={member.biometricEnrolled ? "Re-enroll fingerprint" : "Enroll fingerprint"}
+                >
+                  <Fingerprint className="w-3.5 h-3.5" />
+                </button>
+                <ConfirmAction
+                  label={member.isBlocked ? "Unban" : "Ban"}
+                  confirmLabel={member.isBlocked ? "Unban member?" : "Ban member?"}
+                  destructive={!member.isBlocked}
+                  onConfirm={async () => {
+                    const fd = new FormData();
+                    fd.append("isBlocked", member.isBlocked ? "false" : "true");
+                    const res = await fetch(`/api/members/${id}`, { method: "PATCH", body: fd });
+                    if (res.ok) refresh();
+                  }}
+                />
+                {isOwner && (
+                  <ConfirmAction
+                    label="Archive"
+                    confirmLabel="Archive member? This hides them from all lists."
+                    destructive
+                    onConfirm={async () => {
+                      const fd = new FormData();
+                      fd.append("isArchived", "true");
+                      const res = await fetch(`/api/members/${id}`, { method: "PATCH", body: fd });
+                      if (res.ok) router.push("/members");
+                    }}
+                  />
                 )}
-                <Badge variant={member.biometricEnrolled ? "success" : "neutral"} className="flex gap-1 items-center">
-                  <Fingerprint className="w-3 h-3" />
-                  {member.biometricEnrolled ? `Biometrics Enrolled (PIN: ${member.deviceUserId})` : "Biometrics Not Enrolled"}
-                </Badge>
               </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-            <button 
-              onClick={handleTestScan}
-              disabled={testingScan}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
-            >
-              {testingScan ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-              Test Scan
-            </button>
-            <button 
-              onClick={() => {
-                setShowEnrollModal(true);
-                setEnrollStatus(null);
-                setEnrollError(null);
-              }}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium rounded-lg transition-colors"
-            >
-              <Fingerprint className="w-4 h-4" />
-              {member.biometricEnrolled ? "Re-enroll" : "Enroll Finger"}
-            </button>
-            <button
-              onClick={async () => {
-                if (!confirm(member.isBlocked ? "Unban this member?" : "Ban this member?")) return;
-                const fd = new FormData();
-                fd.append("isBlocked", member.isBlocked ? "false" : "true");
-                const res = await fetch(`/api/members/${id}`, { method: "PATCH", body: fd });
-                if (res.ok) fetchMember();
-                else alert("Failed to ban/unban. Only OWNER can do this.");
-              }}
-              className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors ${member.isBlocked ? 'bg-background border border-input hover:bg-muted' : 'bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20'}`}
-            >
-              <X className="w-4 h-4" />
-              {member.isBlocked ? "Unban" : "Ban"}
-            </button>
-            <Link 
-              href={`/members/${id}/edit`} 
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input bg-background hover:bg-muted text-sm font-medium rounded-lg transition-colors"
-            >
-              <Edit className="w-4 h-4" />
-              Edit
-            </Link>
-            <Link 
-              href={`/cards/${id}`} 
-              target="_blank" 
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium rounded-lg transition-colors"
-            >
-              <Printer className="w-4 h-4" />
-              Print Card
-            </Link>
           </div>
         </div>
 
-        {/* Enroll Fingerprint Modal */}
+        {/* ── Enroll Modal ─────────────────────────────────────────────────── */}
         {showEnrollModal && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="bg-card border border-border rounded-xl p-5 max-w-sm w-full space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Fingerprint className="w-5 h-5 text-primary" />
-                  Enroll Fingerprint on Device
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Fingerprint className="w-4 h-4 text-primary" /> Enroll Fingerprint
                 </h3>
-                <button 
-                  onClick={() => setShowEnrollModal(false)}
-                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
-                >
-                  <X className="w-5 h-5" />
+                <button onClick={() => setShowEnrollModal(false)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                Ensure member is at the ZKTeco scanner. The device will beep and prompt to press the finger 3 times.
-              </p>
-
-              {enrollError && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-xs text-destructive">
-                  {enrollError}
-                </div>
-              )}
-
+              <p className="text-xs text-muted-foreground">Member must be at the ZKTeco scanner. Device will prompt to press finger 3 times.</p>
+              {enrollError && <p className="text-xs text-destructive">{enrollError}</p>}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Device PIN / ID</label>
-                <input 
-                  type="text" 
+                <label className="block text-xs text-muted-foreground mb-1">Device PIN</label>
+                <input
+                  type="text"
                   value={devicePin}
                   onChange={(e) => setDevicePin(e.target.value)}
-                  placeholder="Auto-generated (e.g. 101)"
-                  className="w-full border border-input bg-background rounded-lg p-2.5 text-sm"
+                  placeholder="Auto-generated"
+                  className="w-full border border-input bg-background rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
-
               {enrollStatus && (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary font-medium flex items-center gap-2">
-                  {enrolling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                <p className="text-xs text-primary flex items-center gap-1.5">
+                  {enrolling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-success" />}
                   {enrollStatus}
-                </div>
+                </p>
               )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEnrollModal(false)}
-                  className="px-4 py-2 border border-input bg-background rounded-lg text-sm font-medium hover:bg-muted"
-                >
-                  Close
-                </button>
-                <button 
-                  type="button" 
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => setShowEnrollModal(false)} className="px-3 py-1.5 border border-input rounded-md text-sm hover:bg-muted">Close</button>
+                <button
                   onClick={handleEnroll}
                   disabled={enrolling}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2"
+                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary-hover disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {enrolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Capturing...</> : "Start Capture"}
+                  {enrolling ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Capturing...</> : "Start Capture"}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        <div>
-          <h2 className="text-xl font-bold mb-4">Attendance History</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Method</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">Loading history...</TableCell></TableRow>
-              ) : history.length === 0 ? (
-                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">No attendance records found.</TableCell></TableRow>
-              ) : (
-                history.map((record: any) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">
-                      <DualDate date={record.checkInDate} inline short />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <DualDate date={record.checkInAt} includeTime inline short />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={record.method === 'BARCODE' ? 'success' : 'warning'}>
-                        {record.method}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        {/* ── Memberships & Payments ───────────────────────────────────────── */}
+        <section>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Memberships & Payments</h2>
+
+          {/* Issue / Renew form */}
+          <form onSubmit={handleIssue} className="flex flex-wrap items-end gap-2 mb-4 pb-4 border-b border-border">
+            <div className="flex-1 min-w-40">
+              <label className="block text-xs text-muted-foreground mb-1">Plan</label>
+              <select
+                required
+                value={selectedPlanId}
+                onChange={(e) => setSelectedPlanId(e.target.value)}
+                className="w-full border border-input bg-background rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Select plan...</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} · {p.durationDays}d · {(p.priceCents / 100).toFixed(0)} ETB</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-32">
+              <label className="block text-xs text-muted-foreground mb-1">Amount (ETB)</label>
+              <input
+                required
+                type="number"
+                step="0.01"
+                min="1"
+                value={issueAmount}
+                onChange={(e) => setIssueAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full border border-input bg-background rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-xs text-muted-foreground mb-1">Method</label>
+              <select
+                value={issueMethod}
+                onChange={(e) => setIssueMethod(e.target.value)}
+                className="w-full border border-input bg-background rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="CASH">Cash</option>
+                <option value="BANK">Bank</option>
+                <option value="CARD">Card</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={issuing}
+              className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {issuing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {active ? "Renew" : "Issue"}
+            </button>
+            {issueError && <p className="w-full text-xs text-destructive">{issueError}</p>}
+          </form>
+
+          {/* Membership list */}
+          <div className="space-y-3">
+            {member.memberships.length === 0 && (
+              <p className="text-sm text-muted-foreground">No memberships.</p>
+            )}
+            {member.memberships.map((m) => (
+              <div key={m.id} className="border border-border rounded-lg px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold">{m.plan.name}</span>
+                      <Badge variant={membershipBadgeVariant(m)}>{m.status}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      <DualDate date={m.startsAt} inline short /> – <DualDate date={m.endsAt} inline short />
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {m.payments.length === 0 ? (
+                        <span className="text-xs text-destructive">No payment recorded</span>
+                      ) : (
+                        m.payments.map((p) => (
+                          <span key={p.id} className="text-xs text-muted-foreground">
+                            {(p.amountCents / 100).toFixed(2)} ETB ({p.method})
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                    <ConfirmAction
+                      label={m.status === "FROZEN" ? "Unfreeze" : "Freeze"}
+                      confirmLabel={m.status === "FROZEN" ? "Unfreeze membership?" : "Freeze membership?"}
+                      onConfirm={async () => {
+                        await fetch(`/api/members/${id}/memberships/${m.id}/freeze`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ freeze: m.status !== "FROZEN" }),
+                        });
+                        refresh();
+                      }}
+                    />
+                    <button
+                      onClick={() => setRecordingPaymentFor(recordingPaymentFor === m.id ? null : m.id)}
+                      className="text-xs font-medium px-2.5 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      + Payment
+                    </button>
+                  </div>
+                </div>
+                {recordingPaymentFor === m.id && (
+                  <InlinePaymentForm
+                    membershipId={m.id}
+                    onSuccess={() => { setRecordingPaymentFor(null); refresh(); }}
+                    onCancel={() => setRecordingPaymentFor(null)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Attendance History ───────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Attendance</h2>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Method</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {attendanceLoading ? (
+                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">Loading...</TableCell></TableRow>
+                ) : history.length === 0 ? (
+                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No records.</TableCell></TableRow>
+                ) : (
+                  history.map((record: any) => (
+                    <TableRow key={record.id}>
+                      <TableCell><DualDate date={record.checkInDate} inline short /></TableCell>
+                      <TableCell className="text-muted-foreground"><DualDate date={record.checkInAt} includeTime inline short /></TableCell>
+                      <TableCell><Badge variant={record.method === "BARCODE" ? "neutral" : "warning"}>{record.method}</Badge></TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
           {meta.totalPages > 1 && (
-            <div className="mt-4 flex justify-between items-center text-sm">
+            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
               <button
                 disabled={meta.page === 1}
                 onClick={() => setMeta({ ...meta, page: meta.page - 1 })}
-                className="px-4 py-2 border border-input rounded-lg disabled:opacity-50 hover:bg-muted transition-colors font-medium"
+                className="flex items-center gap-1 px-2 py-1 border border-input rounded hover:bg-muted disabled:opacity-40 transition-colors"
               >
-                Previous
+                <ChevronLeft className="w-3.5 h-3.5" /> Prev
               </button>
-              <span className="text-muted-foreground">Page {meta.page} of {meta.totalPages}</span>
+              <span>Page {meta.page} of {meta.totalPages}</span>
               <button
                 disabled={meta.page === meta.totalPages}
                 onClick={() => setMeta({ ...meta, page: meta.page + 1 })}
-                className="px-4 py-2 border border-input rounded-lg disabled:opacity-50 hover:bg-muted transition-colors font-medium"
+                className="flex items-center gap-1 px-2 py-1 border border-input rounded hover:bg-muted disabled:opacity-40 transition-colors"
               >
-                Next
+                Next <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
-        </div>
+        </section>
 
-        <MembershipManager member={member} refreshMember={() => {
-          fetch(`/api/members/${id}`).then(res => res.json()).then(setMember)
-        }} />
-      </div>
-    </div>
-  );
-}
-
-function MembershipManager({ member, refreshMember }: { member: any, refreshMember: () => void }) {
-  const [plans, setPlans] = useState<any[]>([]);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-
-  useEffect(() => {
-    fetch("/api/plans").then(r => r.json()).then(setPlans);
-  }, []);
-
-  const handleIssue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch(`/api/members/${member.id}/memberships`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        planId: selectedPlanId,
-        paymentAmountCents: paymentAmount ? Math.round(parseFloat(paymentAmount) * 100) : undefined,
-        paymentMethod: paymentAmount ? paymentMethod : undefined
-      })
-    });
-    if (res.ok) {
-      setSelectedPlanId("");
-      setPaymentAmount("");
-      refreshMember();
-    } else {
-      alert("Failed to issue membership");
-    }
-  };
-
-  const toggleFreeze = async (membershipId: string, currentlyFrozen: boolean) => {
-    if (!confirm(currentlyFrozen ? "Unfreeze?" : "Freeze?")) return;
-    const res = await fetch(`/api/members/${member.id}/memberships/${membershipId}/freeze`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ freeze: !currentlyFrozen })
-    });
-    if (res.ok) refreshMember();
-  };
-
-  const handleStandalonePayment = async (membershipId: string) => {
-    const amt = prompt("Amount paid (ETB):");
-    if (!amt) return;
-    const method = prompt("Method (CASH/CARD/BANK):", "CASH");
-    if (!method) return;
-    
-    const res = await fetch(`/api/payments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        membershipId,
-        amountCents: Math.round(parseFloat(amt) * 100),
-        method
-      })
-    });
-    if (res.ok) refreshMember();
-  };
-
-  return (
-    <div>
-      <h2 className="text-xl font-bold mb-6">Memberships & Payments</h2>
-      
-      <form onSubmit={handleIssue} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-8 bg-card p-6 rounded-xl border border-border shadow-sm">
-        <div className="md:col-span-2 space-y-1.5">
-          <label className="text-sm font-medium text-muted-foreground">Issue / Renew Plan</label>
-          <select required value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm">
-            <option value="">Select a Plan...</option>
-            {plans.map(p => <option key={p.id} value={p.id}>{p.name} - {p.durationDays} Days</option>)}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-muted-foreground">Payment (ETB)</label>
-          <input type="number" step="0.01" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Optional" className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm" />
-        </div>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1 space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Method</label>
-            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm">
-              <option value="CASH">CASH</option>
-              <option value="BANK">BANK</option>
-              <option value="CARD">CARD</option>
-            </select>
-          </div>
-          <button type="submit" className="h-[38px] px-4 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary-hover transition-colors text-sm">
-            Issue
-          </button>
-        </div>
-      </form>
-
-      <div className="space-y-4">
-        {member.memberships?.map((m: any) => (
-          <div key={m.id} className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="font-bold text-lg">{m.plan.name}</h3>
-                  <Badge variant={m.status === 'FROZEN' ? 'warning' : (new Date(m.endsAt) < new Date() ? 'neutral' : 'success')}>
-                    {m.status}
-                  </Badge>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1 flex gap-1">
-                  <DualDate date={m.startsAt} inline short /> - <DualDate date={m.endsAt} inline short />
-                </div>
-                
-                <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                  <span className="text-muted-foreground mr-1">Payments:</span>
-                  {m.payments.length === 0 ? <span className="text-muted-foreground">None</span> : m.payments.map((p: any) => (
-                    <Badge key={p.id} variant="neutral">{(p.amountCents / 100).toFixed(2)} ETB ({p.method})</Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex gap-2 w-full md:w-auto">
-                <button onClick={() => toggleFreeze(m.id, m.status === 'FROZEN')} className="flex-1 md:flex-none text-sm border border-input bg-background px-4 py-2 rounded-lg hover:bg-muted font-medium transition-colors">
-                  {m.status === 'FROZEN' ? 'Unfreeze' : 'Freeze'}
-                </button>
-                <button onClick={() => handleStandalonePayment(m.id)} className="flex-1 md:flex-none text-sm border border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary/10 font-medium transition-colors">
-                  Record Payment
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {member.memberships?.length === 0 && (
-          <div className="text-center p-8 bg-card border border-border rounded-xl shadow-sm text-muted-foreground">
-            No memberships found.
-          </div>
-        )}
       </div>
     </div>
   );

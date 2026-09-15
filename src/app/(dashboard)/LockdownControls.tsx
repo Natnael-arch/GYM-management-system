@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Lock, LockOpen } from "lucide-react";
 
 export function LockdownControls({ initialLockdown }: { initialLockdown: boolean }) {
   const [isLocked, setIsLocked] = useState(initialLockdown);
@@ -11,14 +12,14 @@ export function LockdownControls({ initialLockdown }: { initialLockdown: boolean
   const toggleLockdown = async () => {
     const newState = !isLocked;
     if (newState && !confirm("Are you sure you want to CLOSE the gym? This will block all incoming check-ins at the kiosk.")) return;
-    
+
     setLoading(true);
     const res = await fetch("/api/settings/lockdown", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lockdownMode: newState })
     });
-    
+
     if (res.ok) {
       setIsLocked(newState);
       router.refresh();
@@ -29,18 +30,17 @@ export function LockdownControls({ initialLockdown }: { initialLockdown: boolean
   };
 
   return (
-    <div className={`p-4 rounded-xl border-2 flex flex-col items-end ${isLocked ? 'border-red-500 bg-red-50' : 'border-green-500 bg-green-50'}`}>
-      <span className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-700">Door / Kiosk Control</span>
-      <button 
-        onClick={toggleLockdown}
-        disabled={loading}
-        className={`px-6 py-3 rounded-lg font-black text-white shadow transition-all ${
-          isLocked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-        }`}
-      >
-        {loading ? "UPDATING..." : isLocked ? "GYM CLOSED (LOCKED DOWN)" : "GYM OPEN (NORMAL)"}
-      </button>
-      {isLocked && <p className="text-xs text-red-600 font-bold mt-2">All barcode scans will be rejected.</p>}
-    </div>
+    <button
+      onClick={toggleLockdown}
+      disabled={loading}
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors border ${
+        isLocked
+          ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+          : 'bg-success/10 text-success border-success/30 hover:bg-success/20'
+      }`}
+    >
+      {isLocked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+      {loading ? "Updating..." : isLocked ? "Gym Closed" : "Gym Open"}
+    </button>
   );
 }

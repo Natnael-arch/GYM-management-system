@@ -46,7 +46,8 @@ export async function POST(request: Request) {
         where: { id: memberId },
         data: { 
           deviceUserId: pin,
-          biometricEnrolled: true 
+          biometricEnrolled: true,
+          biometricRef: enrollResult.template || null
         }
       });
 

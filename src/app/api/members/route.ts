@@ -62,6 +62,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (photo && photo.size > 0) {
+    if (photo.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: 'Photo must be under 5 MB' }, { status: 400 });
+    }
+    if (!ALLOWED_PHOTO_TYPES.includes(photo.type)) {
+      return NextResponse.json({ error: 'Photo must be JPEG, PNG, or WebP' }, { status: 400 });
+    }
+  }
+
   let photoUrl = null;
   if (photo && photo.size > 0) {
     const bytes = await photo.arrayBuffer();

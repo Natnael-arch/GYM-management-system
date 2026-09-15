@@ -1,12 +1,20 @@
-import { zktecoService } from './lib/zkteco';
-import { prisma } from './lib/prisma';
-import { processCheckIn } from './lib/checkin-service';
-import { reconcileAllMembers } from './lib/device-sync';
-import { globalEmitter } from './lib/event-emitter';
-
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     console.log('[Instrumentation] Starting Node.js background services...');
+
+    // Dynamically import Node.js-only modules so the Edge runtime never
+    // attempts to evaluate them (fs, path, child_process are not available there).
+    const [
+      { zktecoService },
+      { prisma },
+      { processCheckIn },
+      { reconcileAllMembers },
+    ] = await Promise.all([
+      import('./lib/zkteco'),
+      import('./lib/prisma'),
+      import('./lib/checkin-service'),
+      import('./lib/device-sync'),
+    ]);
 
     // Fire-and-forget: never block Next boot when the device is offline.
     // The service retries every 10s on its own.
@@ -75,3 +83,4 @@ export async function register() {
     scheduleNightlyReconcile();
   }
 }
+

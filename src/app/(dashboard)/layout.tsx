@@ -22,15 +22,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router]);
 
   if (loading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
-      Loading...
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background relative">
       <Sidebar />
-      <div className="pl-64 flex flex-col min-h-screen">
+      <div className="pl-56 flex flex-col min-h-screen">
         <main className="flex-1 overflow-x-hidden relative">
           {children}
         </main>

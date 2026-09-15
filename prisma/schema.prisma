@@ -82,6 +82,7 @@ model Membership {
   startsAt DateTime
   endsAt   DateTime
   status   MembershipStatus @default(ACTIVE) // ACTIVE, EXPIRED, FROZEN
+  frozenAt DateTime?        // Set when frozen; used to extend endsAt on unfreeze
   payments Payment[]
   member   Member           @relation(fields: [memberId], references: [id])
   plan     Plan             @relation(fields: [planId], references: [id])
@@ -111,7 +112,6 @@ model Attendance {
   memberId    String
   checkInAt   DateTime  @default(now())
   checkInDate DateTime  @db.Date
-  checkOutAt  DateTime?
   method      String    @default("BARCODE")
   member      Member    @relation(fields: [memberId], references: [id])
 
@@ -126,6 +126,8 @@ model DeniedAttempt {
   reason    String
   scannedAt DateTime @default(now())
   member    Member?  @relation(fields: [memberId], references: [id])
+
+  @@index([scannedAt])
 }
 
 // better-auth required tables

@@ -69,16 +69,11 @@ export async function syncMemberAccess(memberId: string): Promise<SyncResult> {
     }
     return { action: 'removed', deviceUserId };
   } else {
-    // Re-add the user row so their finger is accepted again.
-    // If their fingerprint template was wiped, staff re-enrolls via biometrics page.
-    console.log(`[DeviceSync] Restoring device user ${deviceUserId}`);
+    console.log(`[DeviceSync] Restoring device user ${deviceUserId} from backup template`);
     const name = `${member.firstName} ${member.lastName}`;
-    const res = await zktecoService.enrollUser(deviceUserId, name);
+    const res = await (zktecoService as any).restoreUser(deviceUserId, name, member.biometricRef);
     if (!res.success) {
-      if (res.error && /duplicate|already/i.test(res.error)) {
-        return { action: 'restored', deviceUserId };
-      }
-      console.warn(`[DeviceSync] enrollUser for restore returned:`, res.error);
+      console.warn(`[DeviceSync] restoreUser returned:`, res.error);
     }
     return { action: 'restored', deviceUserId };
   }

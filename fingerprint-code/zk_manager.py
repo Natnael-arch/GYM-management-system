@@ -373,11 +373,51 @@ class ZKController:
                     _log(f"[WARN] template verification check failed: {tpl_err}")
 
             if done:
-                return {"success": True, "user_id": user_id, "uid": int(uid)}
+                try:
+                    import base64
+                    final_tpl = self.conn.get_user_template(uid=int(uid), temp_id=temp_id, user_id=user_id)
+                    b64 = base64.b64encode(final_tpl.template).decode('ascii') if final_tpl and hasattr(final_tpl, 'template') else None
+                except Exception as e:
+                    b64 = None
+                return {"success": True, "user_id": user_id, "uid": int(uid), "template": b64}
             return {"success": False,
                     "error": "Enrollment timed out — member did not place the "
                              "finger 3 times within the allowed time. "
                              "Please try again."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    
+    def restore_fingerprint(self, user_id, name, template_b64):
+        if not self.conn: return {"success": False, "error": "Not connected"}
+        try:
+            import base64
+            from zk.user import User
+            from zk.finger import Finger
+            
+            uid = None
+            users = self.conn.get_users()
+            for u in users:
+                if str(u.user_id) == str(user_id):
+                    uid = u.uid
+                    break
+            
+            if uid is None:
+                uid = int(self.conn.next_uid or 0) or (max([u.uid for u in users] or [0]) + 1)
+            
+            self.conn.set_user(uid=uid, name=name, privilege=0, password="", group_id="", user_id=user_id, card=0)
+            
+            if template_b64:
+                tpl_bytes = base64.b64decode(template_b64)
+                f = Finger(uid=uid, fid=0, valid=1, template=tpl_bytes)
+                u = User(uid=uid, name=name, privilege=0, password="", group_id="", user_id=user_id, card=0)
+                self.conn.save_user_template(u, [f])
+            
+            try:
+                self.conn.refresh_data()
+            except: pass
+            
+            return {"success": True, "uid": uid}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -497,6 +537,11 @@ def main():
         elif action == "json_delete_user":
             user_id = sys.argv[2] if len(sys.argv) > 2 else ""
             _emit(ctrl.delete_user(user_id))
+        elif action == "json_restore":
+            user_id = sys.argv[2]
+            name = sys.argv[3]
+            template_b64 = sys.argv[4] if len(sys.argv) > 4 else ""
+            _emit(ctrl.restore_fingerprint(user_id, name, template_b64))
         elif action == "listen":
             ctrl.live_listen()
         else:

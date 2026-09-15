@@ -13,6 +13,12 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
     return payload;
   };
 
+  // Evict stale grace cache entries on every call
+  const nowMs = Date.now();
+  for (const [key, val] of graceCache.entries()) {
+    if (nowMs - val.timestamp > GRACE_PERIOD_MS) graceCache.delete(key);
+  }
+
   // 1. Lockdown Check
   const settings = await prisma.systemSettings.findUnique({ where: { id: 'default' } });
   if (settings?.lockdownMode) {
@@ -64,10 +70,14 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
 
   // 4. Check active membership
   if (member.memberships.length === 0) {
-    await prisma.deniedAttempt.create({
-      data: { barcode, memberId, reason: 'MEMBERSHIP_EXPIRED' }
+    const frozenMembership = await prisma.membership.findFirst({
+      where: { memberId, status: 'FROZEN' }
     });
-    return emit({ allowed: false, reason: 'MEMBERSHIP_EXPIRED', status: 403, member: memberInfo });
+    const reason = frozenMembership ? 'MEMBERSHIP_FROZEN' : 'MEMBERSHIP_EXPIRED';
+    await prisma.deniedAttempt.create({
+      data: { barcode, memberId, reason }
+    });
+    return emit({ allowed: false, reason, status: 403, member: memberInfo });
   }
 
   // 5. Insert Attendance (ON CONFLICT DO NOTHING handled via try/catch on P2002)
@@ -92,9 +102,6 @@ export async function processCheckIn(barcode: string, method: string = 'BARCODE'
     return emit(payload);
   } catch (error: any) {
     if (error.code === 'P2002' && error.meta?.target?.includes('checkInDate')) {
-      await prisma.deniedAttempt.create({
-        data: { barcode, memberId, reason: 'ALREADY_CHECKED_IN' }
-      });
       return emit({ allowed: false, reason: 'ALREADY_CHECKED_IN', status: 409, member: memberInfo });
     }
     throw error;

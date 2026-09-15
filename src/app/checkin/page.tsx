@@ -136,6 +136,14 @@ export default function CheckInKioskPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-clear result after 4 seconds
+  useEffect(() => {
+    if (!result) return;
+    const timer = setTimeout(() => setResult(null), 4000);
+    return () => clearTimeout(timer);
+  }, [result]);
+
+
   const triggerDoorRelay = async () => {
     try {
       await fetch('/api/access/relay', {
@@ -226,6 +234,7 @@ export default function CheckInKioskPage() {
       case "UNKNOWN_ID": return "Unknown ID Card / ያልታወቀ መታወቂያ";
       case "BLOCKED": return "Member Blocked / አባል ታግዷል";
       case "MEMBERSHIP_EXPIRED": return "Membership Expired / የአባልነት ጊዜ አልቋል";
+      case "MEMBERSHIP_FROZEN": return "Membership Frozen / አባልነት ታግዷል";
       case "ALREADY_CHECKED_IN": return "Already Checked In Today / ዛሬ አስቀድሞ ገብቷል";
       case "GYM_CLOSED": return "Gym Closed (Lockdown) / ጂም ዝግ ነው";
       default: return reason || "Access Denied / መግባት ተከልክሏል";
@@ -248,19 +257,20 @@ export default function CheckInKioskPage() {
       </div>
 
       {queueCount > 0 && (
-        <div className="absolute top-0 left-0 w-full bg-warning text-warning-foreground text-center py-2 font-bold z-50 animate-pulse shadow-lg">
-          OFFLINE MODE ACTIVE - Checks are local, scans will sync later
+        <div className="absolute top-0 left-0 w-full bg-warning text-warning-foreground text-center py-1.5 font-semibold text-sm z-50 shadow">
+          <span className="inline-block w-2 h-2 rounded-full bg-warning-foreground animate-pulse mr-2 align-middle" />
+          Offline Mode — scans are queued locally and will sync when reconnected
         </div>
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center relative">
         <form onSubmit={handleSubmit} className="absolute top-0 left-0 opacity-0 pointer-events-none">
-          <input 
+          <input
             ref={inputRef}
-            type="text" 
-            value={barcode} 
+            type="text"
+            value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
-            autoFocus 
+            autoFocus
           />
         </form>
 
@@ -272,7 +282,7 @@ export default function CheckInKioskPage() {
             <h1 className="text-4xl font-bold tracking-widest uppercase">Ready to Scan</h1>
           </div>
         ) : (
-          <div className={`w-full max-w-4xl p-12 rounded-3xl text-center shadow-2xl transition-all mt-16 ${
+          <div className={`w-full max-w-4xl p-12 rounded-2xl text-center shadow-2xl transition-all mt-16 ${
             result.allowed ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
           }`}>
             {result.allowed && result.member ? (
@@ -285,8 +295,8 @@ export default function CheckInKioskPage() {
                 {result.member.photoUrl ? (
                   <img src={result.member.photoUrl} alt="Photo" className="w-64 h-64 rounded-full object-cover shadow-xl border-8 border-success-foreground/20" />
                 ) : (
-                  <div className="w-64 h-64 rounded-full bg-success-foreground/20 flex items-center justify-center text-success-foreground text-3xl font-bold border-8 border-success-foreground/40">
-                    No Photo
+                  <div className="w-64 h-64 rounded-full bg-success-foreground/20 flex items-center justify-center text-success-foreground text-6xl font-bold border-8 border-success-foreground/40 select-none">
+                    {result.member.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
                 )}
                 <div className="text-left">
@@ -313,24 +323,6 @@ export default function CheckInKioskPage() {
             )}
           </div>
         )}
-      </div>
-
-      <div className="mt-8 border-t border-border pt-8">
-        <h3 className="text-muted-foreground uppercase tracking-wider text-sm font-bold mb-4">Recent Scans</h3>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {history.length === 0 && <span className="text-muted-foreground">No recent scans.</span>}
-          {history.map((h, i) => (
-            <div key={i} className={`flex-shrink-0 w-64 p-4 rounded-xl border ${h.allowed ? 'border-success bg-success/10 text-success' : 'border-destructive bg-destructive/10 text-destructive'}`}>
-              <div className="flex justify-between items-start mb-2">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${h.allowed ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
-                  {h.allowed ? (h.isOfflineQueued ? 'QUEUED' : 'ALLOW') : 'DENY'}
-                </span>
-                <span className="text-xs opacity-70"><DualDate date={h.scannedAt} includeTime inline short /></span>
-              </div>
-              <p className="font-semibold truncate">{h.allowed ? h.member?.name : h.reason}</p>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

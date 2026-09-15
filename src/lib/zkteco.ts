@@ -397,7 +397,7 @@ class ZKTecoService extends EventEmitter {
     }
   }
 
-  async enrollUser(userId: string, name?: string): Promise<{ success: boolean; error?: string }> {
+  async enrollUser(userId: string, name?: string): Promise<{ success: boolean; error?: string; template?: string }> {
     if (this.mockMode) {
       console.log(`[ZKTeco Mock] Enrolled mock user: ${userId}`);
       return { success: true };
@@ -410,7 +410,7 @@ class ZKTecoService extends EventEmitter {
       await this.stopListener();
       // Give the device a moment to release the socket.
       await new Promise((r) => setTimeout(r, 1500));
-      const res = await this.runPython<{ success: boolean; error?: string }>(
+      const res = await this.runPython<{ success: boolean; error?: string; template?: string }>(
         'json_enroll',
         pin,
         name || '',
@@ -436,7 +436,33 @@ class ZKTecoService extends EventEmitter {
     }
   }
 
+
+  async restoreUser(deviceUserId: string, name: string, templateB64: string | null): Promise<{ success: boolean; error?: string }> {
+    if (this.mockMode) return { success: true };
+    const pin = String(deviceUserId).trim();
+    if (!pin) return { success: false, error: 'deviceUserId is required' };
+    try {
+      this.isConnected = false;
+      await this.stopListener();
+      await new Promise((r) => setTimeout(r, 1000));
+      const res = await this.runPython<{ success: boolean; error?: string }>(
+        'json_restore',
+        pin,
+        name || '',
+        templateB64 || ''
+      );
+      await this.connect();
+      return res;
+    } catch (err: unknown) {
+      await this.connect();
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[ZKTeco] restoreUser failed:', msg);
+      return { success: false, error: msg };
+    }
+  }
+
   async deleteUser(deviceUserId: string): Promise<{ success: boolean; error?: string; note?: string }> {
+
     if (this.mockMode) {
       console.log(`[ZKTeco Mock] Deleted device user: ${deviceUserId}`);
       return { success: true };
